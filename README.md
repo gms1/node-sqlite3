@@ -64,7 +64,46 @@ SQLite's [SQLCipher extension](https://github.com/sqlcipher/sqlcipher) is also 
 
 # API
 
-See the [API documentation](https://github.com/gms1/node-sqlite3/wiki/API) in the wiki.
+See the [API documentation](docs/API.md) for detailed documentation of both the callback-based and Promise-based APIs.
+
+## Quick Example
+
+### Callback-based API (Traditional)
+
+```js
+const sqlite3 = require('@homeofthings/sqlite3').verbose();
+const db = new sqlite3.Database(':memory:');
+
+db.serialize(() => {
+    db.run("CREATE TABLE lorem (info TEXT)");
+    db.run("INSERT INTO lorem VALUES (?)", ['test']);
+    db.each("SELECT * FROM lorem", (err, row) => {
+        console.log(row);
+    });
+});
+
+db.close();
+```
+
+### Promise-based API (Modern)
+
+```js
+const { SqliteDatabase } = require('@homeofthings/sqlite3');
+
+async function main() {
+    const db = await SqliteDatabase.open(':memory:');
+    
+    await db.run("CREATE TABLE lorem (info TEXT)");
+    await db.run("INSERT INTO lorem VALUES (?)", ['test']);
+    
+    const rows = await db.all("SELECT * FROM lorem");
+    console.log(rows);
+    
+    await db.close();
+}
+
+main().catch(console.error);
+```
 
 # Usage
 
