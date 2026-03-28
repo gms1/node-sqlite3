@@ -26,7 +26,11 @@ This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-vers
    - Upload them as release assets
    - Publish the package to npm
 
-3. ** Create GitHub Release from tag
+3. ** Edit the generated Pre-release
+  - select "Generate release notes"
+  - uncheck "Set as pre-release"
+  - check "Set as latest release" if it is
+  - click "Update Releasse
 
 ### Version format
 
