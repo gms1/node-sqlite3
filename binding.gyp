@@ -74,8 +74,12 @@
       "configurations": {
         "Release": {
           "conditions": [
+            # _FORTIFY_SOURCE applies to all Linux architectures
             ["OS=='linux'", {
-              "defines+": [ "_FORTIFY_SOURCE=2" ],
+              "defines+": [ "_FORTIFY_SOURCE=2" ]
+            }],
+            # Control Flow Protection only for x86_64 (Intel CET)
+            ["OS=='linux' and target_arch=='x64'", {
               "cflags+": [ "-fcf-protection=full" ]
             }],
             ["OS=='win'", {
