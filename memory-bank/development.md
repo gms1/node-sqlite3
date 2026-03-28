@@ -75,7 +75,8 @@ test/
 ├── unicode.test.js      # Unicode handling tests
 ├── update_hook.test.js  # Update hook tests
 ├── upsert.test.js       # UPSERT tests
-└── verbose.test.js      # Verbose mode tests
+├── verbose.test.js      # Verbose mode tests
+└── promise.test.js      # Promise API tests
 ```
 
 ### Running Specific Tests
@@ -137,6 +138,47 @@ db.on('profile', (sql, time) => {
   console.log('SQL:', sql, 'Time:', time, 'ms');
 });
 ```
+
+## Promise API
+
+The project includes Promise-based wrappers for modern async/await support:
+
+### Using Promise API
+
+```javascript
+const { SqliteDatabase } = require('@homeofthings/sqlite3/promise');
+
+// Static factory method
+const db = await SqliteDatabase.open(':memory:');
+
+// Run queries
+const result = await db.run('CREATE TABLE foo (id INT, name TEXT)');
+const row = await db.get('SELECT * FROM foo WHERE id = ?', [1]);
+const rows = await db.all('SELECT * FROM foo');
+
+// Transactions
+await db.beginTransaction();
+await db.run('INSERT INTO foo VALUES (1, "test")');
+await db.commitTransaction();
+
+// Prepared statements
+const stmt = await db.prepare('INSERT INTO foo VALUES (?, ?)');
+await stmt.run(1, 'test');
+await stmt.finalize();
+
+// Close
+await db.close();
+```
+
+### Promise Classes
+
+| Class             | Description                     |
+|-------------------|---------------------------------|
+| `SqliteDatabase`  | Promise wrapper for `Database`  |
+| `SqliteStatement` | Promise wrapper for `Statement` |
+| `SqliteBackup`    | Promise wrapper for `Backup`    |
+
+See [`lib/promise/`](../lib/promise/) for implementation details.
 
 ## Code Style
 
