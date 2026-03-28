@@ -27,10 +27,10 @@ This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-vers
    - Publish the package to npm
 
 3. ** Edit the generated Pre-release
-  - select "Generate release notes"
+  - select "Generate release notes" and adjust them to your needs
   - uncheck "Set as pre-release"
   - check "Set as latest release" if it is
-  - click "Update Releasse
+  - click "Update Release
 
 ### Version format
 

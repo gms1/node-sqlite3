@@ -13,8 +13,8 @@ trim_trailing_whitespace = true
 insert_final_newline = true
 
 # Matches multiple files with the same settings
-[*.js]
-indent_size = 2
+[*.js;*.ts]
+indent_size = 4
 
 [*.json]
 indent_size = 2
