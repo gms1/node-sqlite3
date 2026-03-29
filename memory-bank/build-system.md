@@ -97,7 +97,7 @@ Enables:
 - `DEBUG` and `_DEBUG` preprocessor macros
 - Debug symbols (`GCC_GENERATE_DEBUGGING_SYMBOLS: YES`)
 - No optimizations (`GCC_OPTIMIZATION_LEVEL: 0`)
-- `ASSERT_STATUS()` macro checks (src/macros.h:140)
+- `ASSERT_STATUS()` macro checks (src/macros.h)
 
 ### Release Configuration (Default)
 
@@ -114,9 +114,20 @@ Enables:
 node-gyp rebuild --sqlite=/path/to/sqlite --sqlite_libname=sqlite3
 ```
 
-### Specifying NAPI Version
+### NAPI Version
 
-Prebuilt binaries are available for NAPI versions 3 and 6 (see `package.json` binary.napi_versions).
+The `NAPI_VERSION` define is set via `napi_build_version` variable in binding.gyp:
+
+```python
+"defines": [ "NAPI_VERSION=<(napi_build_version)" ]
+```
+
+**How it works**:
+- The `napi_build_version` variable is automatically set by node-gyp based on the target Node.js version
+- For local builds, it's stored in `build/config.gypi` (e.g., `"napi_build_version": "9"`)
+- For prebuilds, the `prebuild` package passes it via `--napi_build_version=<version>` flag
+
+**Prebuilt binaries**: Available for NAPI versions 3 and 6 (see `package.json` `binary.napi_versions`).
 
 ## Assert Control
 
@@ -172,6 +183,82 @@ yarn upload  # Upload to GitHub releases
 - NAPI versions: 3, 6
 - Platforms: Linux, macOS, Windows (see prebuild configuration)
 
+## Security Hardening
+
+The build system includes platform-specific security hardening flags to protect against common vulnerability classes.
+
+### Linux Hardening
+
+Applied to all Linux builds (see `binding.gyp`):
+
+| Flag                       | Purpose                                                                        |
+|----------------------------|--------------------------------------------------------------------------------|
+| `-fstack-protector-strong` | Stack overflow protection - inserts canaries into functions with local buffers |
+| `-fPIC`                    | Position Independent Code - enables ASLR (Address Space Layout Randomization)  |
+
+Linker flags:
+
+| Flag           | Purpose                                                                              |
+|----------------|--------------------------------------------------------------------------------------|
+| `-Wl,-z,relro` | Read-Only Relocations - makes some ELF sections read-only after load                 |
+| `-Wl,-z,now`   | Immediate binding - resolves all symbols at load time, prevents lazy binding attacks |
+
+Release-only hardening:
+
+| Flag                   | Purpose                                                           | Scope             |
+|------------------------|-------------------------------------------------------------------|-------------------|
+| `_FORTIFY_SOURCE=2`    | Source-level buffer overflow detection                            | All architectures |
+| `-fcf-protection=full` | Intel CET (Control Flow Guard) - protects against ROP/JOP attacks | x86_64 only       |
+
+### Windows Hardening
+
+Applied to all Windows builds (see `binding.gyp`):
+
+**Compiler settings:**
+
+| Setting                       | Purpose                                              |
+|-------------------------------|------------------------------------------------------|
+| `ExceptionHandling: 1`        | C++ exception handling support                       |
+| `BufferSecurityCheck: "true"` | Stack buffer overrun detection (/GS)                 |
+| `ControlFlowGuard: "Guard"`   | Control Flow Guard - validates indirect call targets |
+
+**Linker settings:**
+
+| Setting        | Purpose                                                              |
+|----------------|----------------------------------------------------------------------|
+| `/DYNAMICBASE` | ASLR - randomizes base address at load time                          |
+| `/NXCOMPAT`    | DEP (Data Execution Prevention) - marks stack/heap as non-executable |
+
+Release-only hardening:
+
+| Setting | Purpose                                 |
+|---------|-----------------------------------------|
+| `/sdl`  | Additional security checks and warnings |
+
+### macOS Hardening
+
+Applied to all macOS builds (see `binding.gyp`):
+
+| Flag                               | Purpose                         |
+|------------------------------------|---------------------------------|
+| `-fstack-protector-strong`         | Stack overflow protection       |
+| `CLANG_CXX_LIBRARY: "libc++"`      | Use modern C++ standard library |
+| `MACOSX_DEPLOYMENT_TARGET: "10.7"` | Minimum deployment target       |
+
+### Hardening Summary
+
+| Platform | Stack Protection                 | ASLR                  | Control Flow             | Buffer Checks             |
+|----------|----------------------------------|-----------------------|--------------------------|---------------------------|
+| Linux    | Yes (`-fstack-protector-strong`) | Yes (`-fPIC` + RELRO) | Yes (CET on x86_64)      | Yes (`_FORTIFY_SOURCE=2`) |
+| Windows  | Yes (`BufferSecurityCheck`)      | Yes (`/DYNAMICBASE`)  | Yes (`ControlFlowGuard`) | Yes (`/sdl`)              |
+| macOS    | Yes (`-fstack-protector-strong`) | Yes (default)         | No                       | No                        |
+
+### References
+
+- [OWASP Hardening Guide](https://owasp.org/www-project-web-security-testing-guide/)
+- [GCC Security Features](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html)
+- [MSVC Security Features](https://docs.microsoft.com/en-us/cpp/build/reference/security-best-practices)
+
 ## Troubleshooting
 
 ### Build Fails
@@ -196,3 +283,4 @@ yarn upload  # Upload to GitHub releases
 
 - [Project Overview](project-overview.md) - Architecture and components
 - [Development Workflow](development.md) - Testing and contributing
+- [Decision Log](decisionLog.md) - Technical decisions including hardening rationale

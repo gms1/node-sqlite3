@@ -2,6 +2,54 @@
 
 ## Technical Decisions
 
+### 2026-03-29: Security Hardening Implementation
+
+**Decision**: Implement platform-specific security hardening flags in binding.gyp
+
+**Rationale**:
+- Native addons are potential attack vectors in Node.js applications
+- Security hardening protects against common vulnerability classes:
+  - Buffer overflow attacks
+  - Control flow hijacking (ROP/JOP)
+  - Stack smashing attacks
+  - Memory corruption exploits
+- Modern compilers and linkers provide built-in security features
+- Minimal performance impact in Release builds
+
+**Implementation**:
+
+**Linux (all builds)**:
+- `-fstack-protector-strong` - Stack canaries for functions with local buffers
+- `-fPIC` - Position Independent Code for ASLR
+- `-Wl,-z,relro,-z,now` - RELRO and immediate binding
+
+**Linux (Release only)**:
+- `_FORTIFY_SOURCE=2` - Source-level buffer overflow detection
+- `-fcf-protection=full` - Intel CET (x86_64 only)
+
+**Windows (all builds)**:
+- `BufferSecurityCheck` - Stack buffer overrun detection
+- `ControlFlowGuard` - Control Flow Guard
+- `/DYNAMICBASE` - ASLR support
+- `/NXCOMPAT` - DEP support
+
+**Windows (Release only)**:
+- `/sdl` - Additional security checks
+
+**macOS (all builds)**:
+- `-fstack-protector-strong` - Stack protection
+- `libc++` - Modern C++ standard library
+
+**Files Changed**:
+- `binding.gyp`: Added hardening flags for all platforms
+
+**References**:
+- [OWASP Hardening](https://owasp.org/www-project-web-security-testing-guide/)
+- [GCC Security Features](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html)
+- [MSVC Security Features](https://docs.microsoft.com/en-us/cpp/build/reference/security-best-practices)
+
+---
+
 ### 2026-03-29: NAPI Exception Handling
 
 **Decision**: Use `node_addon_api_except` instead of `NAPI_DISABLE_CPP_EXCEPTIONS=1`

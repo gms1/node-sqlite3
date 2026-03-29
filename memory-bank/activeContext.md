@@ -2,27 +2,23 @@
 
 ## Current Status
 
-**Last Updated**: 2026-03-28
+**Last Updated**: 2026-03-29
 
 ## Current Work
 
-### Promisification Implementation
+### Security Hardening Documentation
 
 **Status**: ✅ COMPLETE
 
-Promise-based wrapper classes are implemented in [`lib/promise/`](../lib/promise/):
+Documented the security hardening implementation in [`binding.gyp`](../binding.gyp):
 
-- [`SqliteDatabase`](../lib/promise/database.js) - Promise wrapper for `Database`
-- [`SqliteStatement`](../lib/promise/statement.js) - Promise wrapper for `Statement`
-- [`SqliteBackup`](../lib/promise/backup.js) - Promise wrapper for `Backup`
-- [`index.js`](../lib/promise/index.js) - Module exports
-
-**Features Implemented**:
-- Static factory method `SqliteDatabase.open(filename, mode)`
-- All async methods return Promises
-- Transaction support: `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
-- `each()` method with row callback pattern
-- Event emitter support preserved
+- Added comprehensive "Security Hardening" section to [`build-system.md`](build-system.md)
+- Documented platform-specific hardening flags:
+  - **Linux**: `-fstack-protector-strong`, `-fPIC`, RELRO, `_FORTIFY_SOURCE=2`, CET
+  - **Windows**: BufferSecurityCheck, ControlFlowGuard, ASLR, DEP, /sdl
+  - **macOS**: `-fstack-protector-strong`, libc++
+- Added hardening decision entry to [`decisionLog.md`](decisionLog.md)
+- Updated [`progress.md`](progress.md) with completed work
 
 ## Pending Tasks
 
@@ -30,8 +26,8 @@ No active tasks currently assigned.
 
 ## Recent Changes
 
-- Memory-bank structure created with UMB workflow support
-- Promisification implementation verified as complete
+- Security hardening documentation added to memory bank
+- Memory-bank structure updated with hardening details
 
 ## Open Questions
 

@@ -2,6 +2,14 @@
 
 ## 2026-03-29
 
+### Security Hardening Documentation
+- Added comprehensive security hardening section to `build-system.md`
+- Documented Linux hardening flags: `-fstack-protector-strong`, `-fPIC`, RELRO, `_FORTIFY_SOURCE=2`, CET
+- Documented Windows hardening: BufferSecurityCheck, ControlFlowGuard, ASLR, DEP, /sdl
+- Documented macOS hardening: `-fstack-protector-strong`, libc++
+- Added hardening decision entry to `decisionLog.md`
+- Created hardening summary table comparing all platforms
+
 ### Memory Bank Update
 - Removed `NAPI_DISABLE_CPP_EXCEPTIONS` from documentation (commit 48e95e8a0d32277449c269b41fba6419acb21418)
 - Updated `build-system.md` and `project-overview.md` to reflect current binding.gyp configuration
