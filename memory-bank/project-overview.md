@@ -18,7 +18,12 @@ node-sqlite3/
 │   ├── sqlite3.js          # Main module entry point
 │   ├── sqlite3-binding.js  # Native binding loader
 │   ├── sqlite3.d.ts        # TypeScript declarations
-│   └── trace.js            # Stack trace augmentation for verbose mode
+│   ├── trace.js            # Stack trace augmentation for verbose mode
+│   └── promise/            # Promise-based API wrappers
+│       ├── index.js        # Promise module exports
+│       ├── database.js     # SqliteDatabase class
+│       ├── statement.js    # SqliteStatement class
+│       └── backup.js       # SqliteBackup class
 ├── src/                    # C++ native addon
 │   ├── node_sqlite3.cc     # Main addon entry
 │   ├── database.cc/h       # Database class
@@ -52,6 +57,13 @@ node-sqlite3/
 - **trace.js**: Stack trace augmentation for verbose mode
   - Extends error stack traces to include operation context
 
+- **promise/**: Promise-based API wrappers (modern async/await support)
+  - `SqliteDatabase` class: `open()`, `close()`, `run()`, `get()`, `all()`, `each()`, `exec()`, `prepare()`, `backup()`
+  - `SqliteStatement` class: `bind()`, `reset()`, `finalize()`, `run()`, `get()`, `all()`, `each()`
+  - `SqliteBackup` class: `step()`, `finish()`
+  - Transaction support: `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
+  - Static factory: `SqliteDatabase.open(filename, mode)`
+
 ### Native Layer (src/)
 
 - **node_sqlite3.cc**: Module initialization, exports `Database`, `Statement`, `Backup` classes
@@ -65,7 +77,7 @@ node-sqlite3/
 - **binding.gyp**: node-gyp configuration
   - Builds `node_sqlite3` target
   - Links against SQLite (internal or external)
-  - Defines `NAPI_VERSION` and `NAPI_DISABLE_CPP_EXCEPTIONS=1`
+  - Defines `NAPI_VERSION` based on the target Node.js version
 
 - **deps/common-sqlite.gypi**: Common build configurations
   - `Debug` configuration: disables `NDEBUG`, enables debug symbols

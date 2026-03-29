@@ -28,8 +28,7 @@ Main build configuration file:
         "src/statement.cc"
       ],
       "defines": [
-        "NAPI_VERSION=<(napi_build_version)",
-        "NAPI_DISABLE_CPP_EXCEPTIONS=1"
+        "NAPI_VERSION=<(napi_build_version)"
       ]
       // ... more config
     }

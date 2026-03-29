@@ -26,23 +26,23 @@ export const BUSY: number;
 export const LOCKED: number;
 export const NOMEM: number;
 export const READONLY: number;
-export const INTERRUPT: number
+export const INTERRUPT: number;
 export const IOERR: number;
-export const CORRUPT: number
+export const CORRUPT: number;
 export const NOTFOUND: number;
 export const FULL: number;
 export const CANTOPEN: number;
 export const PROTOCOL: number;
 export const EMPTY: number;
 export const SCHEMA: number;
-export const TOOBIG: number
-export const CONSTRAINT: number
+export const TOOBIG: number;
+export const CONSTRAINT: number;
 export const MISMATCH: number;
 export const MISUSE: number;
 export const NOLFS: number;
-export const AUTH: number
+export const AUTH: number;
 export const FORMAT: number;
-export const RANGE: number
+export const RANGE: number;
 export const NOTADB: number;
 
 export const LIMIT_LENGTH: number;
@@ -64,8 +64,8 @@ export const cached: {
 };
 
 export interface RunResult extends Statement {
-    lastID: number;
-    changes: number;
+  lastID: number;
+  changes: number;
 }
 
 export class Statement extends events.EventEmitter {
@@ -143,6 +143,17 @@ export class Database extends events.EventEmitter {
 
 export function verbose(): sqlite3;
 
+export interface Backup {
+    idle: boolean;
+    completed: boolean;
+    failed: boolean;
+    remaining: number;
+    pageCount: number;
+    step(pages: number, callback: (err: Error | null) => void): void;
+    finish(): void;
+}
+
+
 export interface sqlite3 {
     OPEN_READONLY: number;
     OPEN_READWRITE: number;
@@ -165,23 +176,23 @@ export interface sqlite3 {
     LOCKED: number;
     NOMEM: number;
     READONLY: number;
-    INTERRUPT: number
+    INTERRUPT: number;
     IOERR: number;
-    CORRUPT: number
+    CORRUPT: number;
     NOTFOUND: number;
     FULL: number;
     CANTOPEN: number;
     PROTOCOL: number;
     EMPTY: number;
     SCHEMA: number;
-    TOOBIG: number
-    CONSTRAINT: number
+    TOOBIG: number;
+    CONSTRAINT: number;
     MISMATCH: number;
     MISUSE: number;
     NOLFS: number;
-    AUTH: number
+    AUTH: number;
     FORMAT: number;
-    RANGE: number
+    RANGE: number;
     NOTADB: number;
 
     LIMIT_LENGTH: number;
@@ -201,5 +212,143 @@ export interface sqlite3 {
     RunResult: RunResult;
     Statement: typeof Statement;
     Database: typeof Database;
+    Backup: Backup;
+    SqlRunResult: SqlRunResult;
+    SqliteDatabase: typeof SqliteDatabase;
+    SqliteStatement: typeof SqliteStatement;
+    SqliteBackup: typeof SqliteBackup;
     verbose(): this;
+}
+
+// Promise-based wrapper classes
+
+/**
+ * Result object returned by run() operations
+ */
+export interface SqlRunResult {
+    lastID: number;
+    changes: number;
+}
+
+/**
+ * Promise-based wrapper for the Database class
+ */
+export class SqliteDatabase {
+    protected db?: Database;
+
+    constructor();
+
+    static open(filename: string, mode?: number): Promise<SqliteDatabase>;
+
+    open(filename: string, mode?: number): Promise<void>;
+    close(): Promise<void>;
+
+    run(sql: string, params?: any): Promise<SqlRunResult>;
+    get<T = any>(sql: string, params?: any): Promise<T | undefined>;
+    all<T = any>(sql: string, params?: any): Promise<T[]>;
+    each<T = any>(
+        sql: string,
+        params?: any,
+        callback?: (err: Error | null, row: T) => void,
+    ): Promise<number>;
+
+    exec(sql: string): Promise<void>;
+    prepare(sql: string, params?: any): Promise<SqliteStatement>;
+
+    backup(
+        filename: string,
+        filenameIsDest?: boolean,
+        destName?: string,
+        sourceName?: string,
+    ): Promise<SqliteBackup>;
+
+    serialize(callback?: () => void): void;
+    parallelize(callback?: () => void): void;
+
+    transactionalize<T>(callback: () => Promise<T>): Promise<T>;
+    beginTransaction(): Promise<void>;
+    commitTransaction(): Promise<void>;
+    rollbackTransaction(): Promise<void>;
+    endTransaction(commit: boolean): Promise<void>;
+
+    loadExtension(filename: string): Promise<void>;
+
+    wait(): Promise<void>;
+    interrupt(): void;
+
+    configure(option: string, ...args: any[]): void;
+
+    on(event: string, listener: (...args: any[]) => void): this;
+    off(event: string, listener: (...args: any[]) => void): this;
+    removeAllListeners(event?: string): this;
+}
+
+/**
+ * Promise-based wrapper for the Statement class
+ */
+export class SqliteStatement {
+    constructor(stmt: Statement);
+
+    bind(...params: any[]): this;
+    reset(): Promise<void>;
+
+    run(params?: any): Promise<SqlRunResult>;
+    get<T = any>(params?: any): Promise<T | undefined>;
+    all<T = any>(params?: any): Promise<T[]>;
+    each<T = any>(
+        params?: any,
+        callback?: (err: Error | null, row: T) => void,
+    ): Promise<number>;
+
+    finalize(): Promise<void>;
+}
+
+/**
+ * Promise-based wrapper for the Backup class
+ */
+export class SqliteBackup {
+    constructor(backup: Backup);
+
+    /**
+     * Returns true if the backup is idle (not actively copying)
+     */
+    readonly idle: boolean;
+
+    /**
+     * Returns true if the backup is completed
+     */
+    readonly completed: boolean;
+
+    /**
+     * Returns true if the backup has failed
+     */
+    readonly failed: boolean;
+
+    /**
+     * Returns the remaining number of pages left to copy
+     * Returns -1 if `step` not yet called
+     */
+    readonly remaining: number;
+
+    /**
+     * Returns the total number of pages
+     * Returns -1 if `step` not yet called
+     */
+    readonly pageCount: number;
+
+    /**
+     * Returns the progress (percentage completion)
+     */
+    readonly progress: number;
+
+    /**
+     * Copy the next page or all remaining pages of the backup
+     * @param pages - Number of pages to copy (-1 for all remaining)
+     */
+    step(pages?: number): Promise<void>;
+
+    /**
+     * Finish the backup (synchronous)
+     */
+    finish(): void;
 }

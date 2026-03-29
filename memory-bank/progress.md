@@ -1,0 +1,43 @@
+# Progress Log
+
+## 2026-03-29
+
+### Memory Bank Update
+- Removed `NAPI_DISABLE_CPP_EXCEPTIONS` from documentation (commit 48e95e8a0d32277449c269b41fba6419acb21418)
+- Updated `build-system.md` and `project-overview.md` to reflect current binding.gyp configuration
+
+## 2026-03-28
+
+### Memory Bank Setup
+- Created UMB-compliant memory-bank structure
+- Added `activeContext.md` for current work tracking
+- Added `progress.md` for completed work history
+- Added `decisionLog.md` for technical decisions
+- Updated to reflect actual project state
+
+### Promisification Implementation (VERIFIED COMPLETE)
+- Promise-based wrapper classes implemented in [`lib/promise/`](../lib/promise/)
+- `SqliteDatabase` class with full API coverage
+- `SqliteStatement` class with all methods
+- `SqliteBackup` class for backup operations
+- Transaction support: `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
+- Static factory method `SqliteDatabase.open()`
+- Tests in [`test/promise.test.js`](../test/promise.test.js)
+
+## Earlier Sessions
+
+### Project Setup
+- Established Node.js >= 20.17.0 requirement
+- Configured yarn package manager
+- Set up ESLint with `.eslintrc.js`
+- Configured node-gyp build system
+
+### Build System
+- Configured Debug and Release builds
+- Set up prebuild for binary distribution
+- Enabled SQLite extensions: FTS3/4/5, R-Tree, math functions
+
+### Testing Infrastructure
+- Set up mocha test framework
+- Created test support utilities
+- Established test database creation pattern
