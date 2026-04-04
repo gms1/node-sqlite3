@@ -127,7 +127,42 @@ The `NAPI_VERSION` define is set via `napi_build_version` variable in binding.gy
 - For local builds, it's stored in `build/config.gypi` (e.g., `"napi_build_version": "9"`)
 - For prebuilds, the `prebuild` package passes it via `--napi_build_version=<version>` flag
 
-**Prebuilt binaries**: Available for NAPI versions 3 and 6 (see `package.json` `binary.napi_versions`).
+### NAPI Versions Configuration
+
+The `package.json` specifies which NAPI versions to build prebuilt binaries for:
+
+```json
+"binary": {
+  "napi_versions": [3, 6]
+}
+```
+
+**Why multiple versions?**
+
+NAPI versions are independent of Node.js versions - they represent API feature tiers, not Node.js version numbers. Each NAPI version adds new capabilities:
+
+| NAPI Version | Key Features Added                      |
+|--------------|-----------------------------------------|
+| v3           | Instance data, cleanup hooks            |
+| v4           | Thread-safe functions                   |
+| v5           | BigInt support                          |
+| v6           | Instance data with finalizer hints      |
+| v7           | ArrayBuffer detaching                   |
+| v8           | Type tagging, async cleanup             |
+| v9           | External strings, syntax error creation |
+| v10          | Latin1 external strings                 |
+
+**Backward Compatibility**:
+
+NAPI is backward compatible - a binary built for NAPI v3 will run on any Node.js that supports v3 or higher. Since Node.js 20.17.0+ supports NAPI v9, it can run binaries built for v3, v6, or v9.
+
+**Code Conditionals**:
+
+The source code uses `#if NAPI_VERSION < 6` conditionals in [`src/database.h`](../src/database.h) and [`src/database.cc`](../src/database.cc) to provide backward compatibility for NAPI versions below v6. When building for NAPI v6+, these conditionals are disabled.
+
+**Current Configuration Rationale**:
+
+The `[3, 6]` configuration is historical from when this fork supported older Node.js versions. Since the project now requires Node.js >= 20.17.0 (which supports NAPI v9), both prebuilt variants work correctly. Future versions could simplify to a single NAPI version (e.g., v6 or v9).
 
 ## Assert Control
 
