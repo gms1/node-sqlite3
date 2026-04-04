@@ -2,6 +2,7 @@
 #include <sstream>
 #include <cstring>
 #include <string>
+#include <atomic>
 #include <sqlite3.h>
 
 #include "macros.h"
@@ -11,10 +12,20 @@
 
 using namespace node_sqlite3;
 
+// Global flag set when the environment is shutting down.
+std::atomic<bool> g_env_shutting_down{false};
+
+static void EnvCleanupHook(void* /*data*/) {
+    g_env_shutting_down.store(true);
+}
+
 namespace {
 
 Napi::Object RegisterModule(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
+
+    // Register cleanup hook to detect shutdown
+    napi_add_env_cleanup_hook(env, EnvCleanupHook, nullptr);
 
     Database::Init(env, exports);
     Statement::Init(env, exports);

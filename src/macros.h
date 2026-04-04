@@ -4,9 +4,14 @@
 const char* sqlite_code_string(int code);
 const char* sqlite_authorizer_string(int type);
 #include <vector>
+#include <atomic>
 
 // TODO: better way to work around StringConcat?
 #include <napi.h>
+
+// Forward declaration of shutdown flag from node_sqlite3.cc
+extern std::atomic<bool> g_env_shutting_down;
+
 inline Napi::String StringConcat(Napi::Value str1, Napi::Value str2) {
   return Napi::String::New(str1.Env(), str1.As<Napi::String>().Utf8Value() +
                     str2.As<Napi::String>().Utf8Value() );
@@ -128,8 +133,21 @@ inline bool OtherIsInt(Napi::Number source) {
     if ((argc != 0) && (passed_argv != NULL)) {\
       args.assign(passed_argv, passed_argv + argc);\
     }\
-    Napi::Value res = (callback).Call(Napi::Value(context), args);             \
-    if (res.IsEmpty()) return __VA_ARGS__;
+    try {\
+        Napi::Value res = (callback).Call(Napi::Value(context), args);\
+        if (res.IsEmpty()) return __VA_ARGS__;\
+    } catch (const Napi::Error&) {\
+        /* During Node.js/Electron shutdown, when using NAPI_CPP_EXCEPTIONS,*/\
+				/* we must take care to not throw any exceptions. */\
+        /* But when napi_call_function returns napi_cannot_run_js */\
+        /* this throws a C++ exception, when NAPI_CPP_EXCEPTIONS is enabled. */\
+        if (g_env_shutting_down.load()) {\
+             /* We need to silently ignore exceptions during shutdown. */\
+            return __VA_ARGS__;\
+        }\
+        /* Real rror - re-throw to propagate it */\
+        throw;\
+    }
 
 #define WORK_DEFINITION(name)                                                  \
     Napi::Value name(const Napi::CallbackInfo& info);                          \
