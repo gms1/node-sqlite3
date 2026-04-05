@@ -30,8 +30,8 @@ async function runBenchmarks() {
     console.log('=== SELECT BENCHMARKS ===\n');
     for (const [name, benchmark] of Object.entries(selectBenchmarks.benchmarks)) {
         suite.add(`select: ${name}`, benchmark.fn, {
-            beforeEach: benchmark.beforeEach,
-            afterEach: benchmark.afterEach,
+            beforeAll: benchmark.beforeAll,
+            afterAll: benchmark.afterAll,
         });
     }
 
@@ -54,9 +54,10 @@ async function runBenchmarks() {
 
     // Results
     for (const task of suite.tasks) {
-        if (task.result && !task.result.error) {
+        if (task.result && task.result.samples && task.result.samples.length > 0) {
+            // tinybench v6: result has hz (ops/sec), mean (ms), rme (relative margin of error)
             const opsSec = task.result.hz.toFixed(2);
-            const avgTime = (task.result.mean * 1e9).toFixed(2);
+            const avgTime = (task.result.mean * 1e6).toFixed(2); // Convert ms to nanoseconds
             const margin = task.result.rme.toFixed(2);
             const samples = task.result.samples.length;
 
@@ -70,6 +71,8 @@ async function runBenchmarks() {
             console.log(row);
         } else if (task.result?.error) {
             console.log(`${task.name.padEnd(45)} ERROR: ${task.result.error.message}`);
+        } else {
+            console.log(`${task.name.padEnd(45)} No results`);
         }
     }
 }

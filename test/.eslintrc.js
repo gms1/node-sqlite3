@@ -1,9 +1,0 @@
-module.exports = {
-    env: {
-        mocha: true,
-    },
-    extends: '../.eslintrc.js',
-    rules: {
-        'no-unused-vars': 'off'
-    }
-};
