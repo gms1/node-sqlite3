@@ -1,6 +1,15 @@
 # Progress Log
 
-## 2026-04-04: 
+## 2026-04-10:
+
+### fixed: queue processing deadlock in serialized mode
+  - Fixed bug where operations get stuck in queue when using `db.serialize()` with synchronous operations
+  - Issue: https://github.com/TryGhost/node-sqlite3/issues/1838
+  - Modified `Database::Process()` in `src/database.cc` to detect synchronous operations
+  - Added test cases in `test/serialization.test.js`
+  - Solution: Track `pending` counter before/after callback to detect synchronous completion
+
+## 2026-04-04:
 
 ### fixed: potential crash during shutdown
   please see [microsoft/vscode-node-sqlite3/issues/67](https://github.com/microsoft/vscode-node-sqlite3/issues/67)

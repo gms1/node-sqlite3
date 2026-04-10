@@ -14,7 +14,7 @@ Napi::FunctionReference Database::constructor;
 Napi::Object Database::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
     // declare napi_default_method here as it is only available in Node v14.12.0+
-    auto napi_default_method = static_cast<napi_property_attributes>(napi_writable | napi_configurable); 
+    auto napi_default_method = static_cast<napi_property_attributes>(napi_writable | napi_configurable);
 
     auto t = DefineClass(env, "Database", {
         InstanceMethod("close", &Database::Close, napi_default_method),
@@ -81,7 +81,20 @@ void Database::Process() {
         queue.pop();
         std::unique_ptr<Call> call(c);
         locked = call->exclusive;
+
+        // Track pending before callback to detect synchronous operations
+        unsigned int before_pending = pending;
         call->callback(call->baton);
+
+        // If operation was synchronous (pending unchanged) and we're in exclusive mode,
+        // reset locked and continue processing the queue.
+        // Synchronous operations don't increment pending, so if pending is unchanged
+        // and locked is true, the operation completed synchronously.
+        if (locked && pending == before_pending) {
+            locked = false;
+            // Continue processing - don't break
+            continue;
+        }
 
         if (locked) break;
     }
@@ -340,7 +353,7 @@ Napi::Value Database::Configure(const Napi::CallbackInfo& info) {
     REQUIRE_ARGUMENTS(2);
 
     Napi::Function handle;
-    if (info[0].StrictEquals( Napi::String::New(env, "trace"))) {    
+    if (info[0].StrictEquals( Napi::String::New(env, "trace"))) {
        auto* baton = new Baton(db, handle);
         db->Schedule(RegisterTraceCallback, baton);
     }

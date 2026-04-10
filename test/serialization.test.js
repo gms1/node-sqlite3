@@ -102,3 +102,80 @@ describe('serialize(fn)', function() {
 
     after(function(done) { db.close(done); });
 });
+
+describe('serialize() queue processing with synchronous operations', function () {
+    var db;
+
+    beforeEach(function (done) {
+        db = new sqlite3.Database(':memory:', done);
+    });
+
+    afterEach(function (done) {
+        db.close(done);
+    });
+
+    it('should process queued operations after configure in serialized mode', function (done) {
+    // This test reproduces the bug where operations get stuck in the queue
+    // when db.configure() is called during serialized mode with pending async work.
+    // See: https://github.com/TryGhost/node-sqlite3/issues/1838
+
+        var LONG_QUERY = `WITH recursive recur(n)
+            AS (SELECT 1
+            UNION ALL
+            SELECT n + 1
+            FROM recur where n < 1000000
+            )
+            SELECT n FROM recur;`;
+
+        var executed = false;
+
+        db.serialize();
+
+        // Start a long-running async operation
+        db.exec(LONG_QUERY);
+
+        // Queue a synchronous configure operation
+        db.configure('limit', sqlite3.LIMIT_ATTACHED, 1);
+
+        // Queue another operation - this should execute after configure
+        db.exec("SELECT 1", function (err) {
+            if (err) return done(err);
+            executed = true;
+        });
+
+        // Give enough time for the bug to manifest
+        setTimeout(function () {
+            if (executed) {
+                done();
+            } else {
+                done(new Error('Queue processing deadlock: SELECT 1 callback was never called'));
+            }
+        }, 2000);
+    });
+
+    it('should process multiple configure calls in serialized mode', function (done) {
+        var executed = false;
+
+        db.serialize();
+
+        db.exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)");
+        db.exec("INSERT INTO test VALUES (1, 'one')");
+
+        // Multiple configure calls should all be processed
+        db.configure('limit', sqlite3.LIMIT_ATTACHED, 1);
+        db.configure('busyTimeout', 1000);
+
+        db.exec("SELECT * FROM test", function (err, rows) {
+            if (err) return done(err);
+            executed = true;
+        });
+
+        setTimeout(function () {
+            if (executed) {
+                done();
+            } else {
+                done(new Error('Queue processing deadlock: SELECT callback was never called'));
+            }
+        }, 1000);
+    });
+});
