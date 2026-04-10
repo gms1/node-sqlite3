@@ -2,6 +2,46 @@
 
 ## Technical Decisions
 
+### 2026-04-10: Queue Processing Deadlock Fix
+
+**Decision**: Track `pending` counter to detect synchronous operations in `Database::Process()`
+
+**Rationale**:
+- Bug: When using `db.serialize()`, synchronous operations like `configure()` would cause subsequent operations to get stuck in the queue indefinitely
+- Root cause: `Process()` loop breaks after exclusive operations, but synchronous operations don't increment `pending`, leaving `locked=true` with no async work pending
+- Solution detects synchronous completion by checking if `pending` counter changed during callback execution
+
+**Implementation**:
+```cpp
+// Track pending before callback to detect synchronous operations
+unsigned int before_pending = pending;
+call->callback(call->baton);
+
+// If operation was synchronous (pending unchanged) and we're in exclusive mode,
+// reset locked and continue processing the queue.
+if (locked && pending == before_pending) {
+    locked = false;
+    continue;
+}
+```
+
+**Files Changed**:
+- `src/database.cc`: Modified `Database::Process()` function
+- `test/serialization.test.js`: Added test cases for queue processing bug
+
+**Affected Synchronous Operations**:
+- `SetLimit` - SQLite limit configuration
+- `SetBusyTimeout` - Busy timeout setting
+- `RegisterTraceCallback` - Trace callback registration
+- `RegisterProfileCallback` - Profile callback registration
+- `RegisterUpdateCallback` - Update hook registration
+- `Work_Wait` - Wait operation
+
+**References**:
+- GitHub Issue: https://github.com/TryGhost/node-sqlite3/issues/1838
+
+---
+
 ### 2026-03-29: Security Hardening Implementation
 
 **Decision**: Implement platform-specific security hardening flags in binding.gyp
