@@ -2,6 +2,8 @@
 
 ## 2026-04-10:
 
+### v6.3.0
+
 ### fixed: queue processing deadlock in serialized mode
   - Fixed bug where operations get stuck in queue when using `db.serialize()` with synchronous operations
   - Issue: https://github.com/TryGhost/node-sqlite3/issues/1838
