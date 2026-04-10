@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-04-04: 
+
+### fixed: potential crash during shutdown
+  please see [microsoft/vscode-node-sqlite3/issues/67](https://github.com/microsoft/vscode-node-sqlite3/issues/67)
+
 ## 2026-03-29
 
 ### Security Hardening Documentation
@@ -31,6 +36,25 @@
 - Transaction support: `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
 - Static factory method `SqliteDatabase.open()`
 - Tests in [`test/promise.test.js`](../test/promise.test.js)
+
+## v6.2.0
+
+### feature: added hardening flags
+
+### fixed: exception handling
+  please see [microsoft/vscode-node-sqlite3/pull/47](https://github.com/microsoft/vscode-node-sqlite3/pull/47)
+
+## v6.1.1
+
+### fixed: undefined behavior
+  please see [TryGhost/node-sqlite3/issues/1827](https://github.com/TryGhost/node-sqlite3/issues/1827)
+
+## 2026-03-20
+
+### v6.1.0
+
+### fixed: replace withdrawn SQLite 3.52.0 with stable 3.51.3
+  please see [TryGhost/node-sqlite3/pull/1858](https://github.com/TryGhost/node-sqlite3/pull/1858)
 
 ## Earlier Sessions
 
