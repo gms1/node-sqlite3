@@ -613,6 +613,41 @@ await db.rollbackTransaction(); // ROLLBACK TRANSACTION
 await db.endTransaction(commit); // COMMIT or ROLLBACK (ignores "no transaction" errors)
 ```
 
+> **Important: Transaction Isolation Limitations**
+>
+> SQLite provides isolation between **different database connections**, but **NOT** between operations on the **same connection**.
+>
+> **Key behaviors:**
+> - `beginTransaction()` uses `BEGIN IMMEDIATE TRANSACTION` which acquires a write lock immediately
+> - If another connection tries to start a transaction while one is active, it will fail with `SQLITE_BUSY: database is locked`
+> - This is expected SQLite behavior and prevents deadlocks
+>
+> **For concurrent transactions with isolation:**
+> ```javascript
+> // Option 1: Sequential on same connection (recommended)
+> await db.transactionalize(async () => { /* ... */ });
+> await db.transactionalize(async () => { /* ... */ });
+>
+> // Option 2: Separate connections with retry logic
+> const db1 = await SqliteDatabase.open('my.db');
+> const db2 = await SqliteDatabase.open('my.db');
+>
+> // Transactions on db1 and db2 are isolated from each other
+> // But concurrent write transactions will fail with SQLITE_BUSY
+> // You must handle this error in your application:
+> try {
+>     await db2.beginTransaction();
+> } catch (err) {
+>     if (err.message.includes('SQLITE_BUSY') || err.message.includes('database is locked')) {
+>         // Wait and retry, or queue the operation
+>         await new Promise(resolve => setTimeout(resolve, 100));
+>         // retry...
+>     }
+> }
+> ```
+>
+> See [SQLite Isolation Documentation](https://www.sqlite.org/isolation.html) for more details.
+
 #### SqliteDatabase.backup
 
 Creates a backup of the database.

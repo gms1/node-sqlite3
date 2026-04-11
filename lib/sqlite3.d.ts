@@ -265,7 +265,22 @@ export class SqliteDatabase {
     serialize(callback?: () => void): void;
     parallelize(callback?: () => void): void;
 
+    /**
+     * Run callback inside a database transaction.
+     *
+     * IMPORTANT: SQLite provides isolation between different database connections,
+     * but NOT between operations on the same connection. For concurrent transactions
+     * with proper isolation, use separate SqliteDatabase instances.
+     *
+     * Uses BEGIN IMMEDIATE TRANSACTION which acquires a write lock immediately.
+     * @see https://www.sqlite.org/isolation.html
+     */
     transactionalize<T>(callback: () => Promise<T>): Promise<T>;
+
+    /**
+     * Begin a transaction using BEGIN IMMEDIATE TRANSACTION.
+     * Acquires write lock immediately - fails with SQLITE_BUSY if lock unavailable.
+     */
     beginTransaction(): Promise<void>;
     commitTransaction(): Promise<void>;
     rollbackTransaction(): Promise<void>;
