@@ -375,6 +375,10 @@ stmt.each([params...], callback, [complete]);
 
 Finalizes the prepared statement, freeing resources.
 
+> **Important:** You MUST finalize all prepared statements before closing the database.
+> If you attempt to close a database with unfinalized statements, you will get:
+> `SQLITE_BUSY: unable to close due to unfinalised statements`
+
 ```javascript
 stmt.finalize([callback]);
 ```
@@ -761,6 +765,10 @@ const count = await stmt.each([params], callback);
 #### SqliteStatement.finalize
 
 Finalizes the statement.
+
+> **Important:** You MUST finalize all prepared statements before closing the database.
+> If you attempt to close a database with unfinalized statements, you will get:
+> `SQLITE_BUSY: unable to close due to unfinalised statements`
 
 ```javascript
 await stmt.finalize();

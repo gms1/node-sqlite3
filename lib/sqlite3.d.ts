@@ -315,6 +315,11 @@ export class SqliteStatement {
         callback?: (err: Error | null, row: T) => void,
     ): Promise<number>;
 
+    /**
+     * Finalizes the statement.
+     * IMPORTANT: You MUST finalize all prepared statements before closing the database.
+     * Otherwise you will get SQLITE_BUSY: unable to close due to unfinalised statements
+     */
     finalize(): Promise<void>;
 }
 
