@@ -208,6 +208,43 @@ node tools/benchmark/run.js
 
 See [Project Overview](project-overview.md) for benchmark details.
 
+### Critical: Statement.finalize() Requires Callback
+
+**IMPORTANT**: When using `stmt.finalize()` with queued operations (e.g., multiple `stmt.run()` calls inside `db.serialize()`), you **must** provide a callback to wait for operations to complete.
+
+**Without callback (WRONG):**
+```javascript
+db.serialize(() => {
+    const stmt = db.prepare('INSERT INTO foo VALUES (?, ?)');
+    for (let i = 0; i < 10000; i++) {
+        stmt.run(i, 'Row ' + i);
+    }
+    stmt.finalize(); // Returns immediately, cancels queued operations!
+});
+// Result: Only 1 row inserted, operations cancelled
+```
+
+**With callback (CORRECT):**
+```javascript
+db.serialize(() => {
+    const stmt = db.prepare('INSERT INTO foo VALUES (?, ?)');
+    for (let i = 0; i < 10000; i++) {
+        stmt.run(i, 'Row ' + i);
+    }
+    stmt.finalize((err) => {
+        if (err) throw err;
+        // All 10,000 rows now inserted
+    });
+});
+// Result: All 10,000 rows inserted
+```
+
+**Why this matters:**
+- `finalize()` without a callback returns immediately
+- Queued operations (`stmt.run()` calls) are cancelled when the statement is finalized
+- This caused benchmark results to appear ~10x faster than reality because operations never completed
+- Always use callbacks with `finalize()` when operations are queued
+
 ## Making Changes
 
 **IMPORTANT**: After making any code changes, always run:

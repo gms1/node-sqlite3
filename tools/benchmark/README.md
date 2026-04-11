@@ -60,16 +60,17 @@ node tools/benchmark/run.js
 ```
 Task Name                                            ops/sec   Average Time (ns)      Margin   Samples
 ------------------------------------------------------------------------------------------------------
-insert: literal file                                   42.34      23620025909.09       3.71%        22
-insert: transaction with two statements                44.45      22495146260.87       3.01%        23
-insert: with transaction                               43.08      23212004409.09       6.05%        22
-insert: without transaction                            44.64      22399535956.52       5.67%        23
+insert: literal file                                  101.79          9867669.32       1.36%       102
+insert: transaction with two statements                15.72         64101675.83       1.81%       100
+insert: with transaction                                9.53        105168845.93       0.98%       100
+insert: without transaction                             8.76        114706903.08       1.33%       100
 ```
 
 **Key findings:**
-- Using transactions (`BEGIN`/`COMMIT`) significantly improves performance
-- Parallelized statements can further improve performance for concurrent operations
-- Without transactions, each statement is committed individually, which is much slower
+- `literal file` is fastest because it uses a single `db.exec()` call with all SQL in one batch
+- `transaction with two statements` uses parallelized statements within a transaction for better throughput
+- `with transaction` wraps all inserts in a single transaction
+- `without transaction` is slowest because each INSERT is committed individually
 
 ### select.js
 
@@ -89,14 +90,15 @@ node tools/benchmark/run.js
 ```
 Task Name                                            ops/sec   Average Time (ns)      Margin   Samples
 ------------------------------------------------------------------------------------------------------
-select: db.each                                         0.49    2057124731700.00       3.65%        10
-select: db.all                                          0.41    2457100030700.00       4.77%        10
-select: db.all with statement reset                     0.21    4847062019200.00       1.33%        10
+select: db.each                                         0.82       1232450196.30       5.37%        10
+select: db.all                                          0.86       1166833768.40       2.27%        10
+select: db.all with statement reset                     0.42       2357234044.80       0.77%        10
 ```
 
 **Key findings:**
-- `db.all()` is typically faster for small to medium result sets
+- `db.all()` and `db.each()` have similar performance for large result sets (1 million rows)
 - `db.each()` is more memory-efficient for large result sets as it processes rows one at a time
+- `db.all with statement reset` is slower because it executes the query twice
 
 ## Benchmark Data Files
 
@@ -185,4 +187,4 @@ module.exports = {
 
 ## Dependencies
 
-- `tinybench`: ^2.9.0 - Modern benchmark library with proper setup/teardown support
+- `tinybench`: ^6.0.0 - Modern benchmark library with proper setup/teardown support

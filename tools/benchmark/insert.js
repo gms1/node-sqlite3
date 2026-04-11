@@ -87,12 +87,17 @@ module.exports = {
                                     i++;
                                     stmt2.run(i, 'Row ' + i);
                                 }
-                                stmt1.finalize();
-                                stmt2.finalize();
+                                let finalized = 0;
+                                const checkDone = (err) => {
+                                    if (err) reject(err);
+                                    finalized++;
+                                    if (finalized === 2) {
+                                        promisifyRun(db, 'COMMIT').then(resolve).catch(reject);
+                                    }
+                                };
+                                stmt1.finalize(checkDone);
+                                stmt2.finalize(checkDone);
                             });
-
-                            await promisifyRun(db, 'COMMIT');
-                            resolve();
                         });
                     });
                 },
@@ -123,9 +128,14 @@ module.exports = {
                             for (let i = 0; i < iterations; i++) {
                                 stmt.run(i, 'Row ' + i);
                             }
-                            stmt.finalize();
-                            await promisifyRun(db, 'COMMIT');
-                            resolve();
+                            stmt.finalize(async (err) => {
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+                                await promisifyRun(db, 'COMMIT');
+                                resolve();
+                            });
                         });
                     });
                 },
@@ -155,8 +165,10 @@ module.exports = {
                             for (let i = 0; i < iterations; i++) {
                                 stmt.run(i, 'Row ' + i);
                             }
-                            stmt.finalize();
-                            resolve();
+                            stmt.finalize((err) => {
+                                if (err) reject(err);
+                                else resolve();
+                            });
                         });
                     });
                 },

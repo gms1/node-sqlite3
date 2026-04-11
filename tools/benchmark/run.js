@@ -11,32 +11,61 @@ const selectBenchmarks = require('./select');
 async function runBenchmarks() {
     console.log('Running sqlite3 benchmarks...\n');
 
-    const suite = new Bench({
-        time: 500,               // Run each benchmark for 500ms
-        warmupTime: 50,          // Warmup time in ms
-        warmupIterations: 5,    // Minimum warmup iterations
-    });
+    const results = [];
 
-    // Add insert benchmarks
+    // Run insert benchmarks
     console.log('=== INSERT BENCHMARKS ===\n');
     for (const [name, benchmark] of Object.entries(insertBenchmarks.benchmarks)) {
+        console.log(`Running: insert: ${name}`);
+        const suite = new Bench({
+            iterations: 100,
+            warmupIterations: 5,
+        });
+
         suite.add(`insert: ${name}`, benchmark.fn, {
             beforeEach: benchmark.beforeEach,
             afterEach: benchmark.afterEach,
         });
+
+        await suite.run();
+        const task = suite.tasks[0];
+        if (task.result && task.result.latency) {
+            results.push({
+                name: `insert: ${name}`,
+                throughput: task.result.throughput?.mean,
+                latency: task.result.latency.mean,
+                rme: task.result.latency.rme,
+                samples: task.result.latency.samplesCount,
+            });
+        }
     }
 
-    // Add select benchmarks
-    console.log('=== SELECT BENCHMARKS ===\n');
+    // Run select benchmarks (fewer iterations since they're slower)
+    console.log('\n=== SELECT BENCHMARKS ===\n');
     for (const [name, benchmark] of Object.entries(selectBenchmarks.benchmarks)) {
+        console.log(`Running: select: ${name}`);
+        const suite = new Bench({
+            iterations: 10,
+            warmupIterations: 1,
+        });
+
         suite.add(`select: ${name}`, benchmark.fn, {
             beforeAll: benchmark.beforeAll,
             afterAll: benchmark.afterAll,
         });
-    }
 
-    // Run all benchmarks
-    await suite.run();
+        await suite.run();
+        const task = suite.tasks[0];
+        if (task.result && task.result.latency) {
+            results.push({
+                name: `select: ${name}`,
+                throughput: task.result.throughput?.mean,
+                latency: task.result.latency.mean,
+                rme: task.result.latency.rme,
+                samples: task.result.latency.samplesCount,
+            });
+        }
+    }
 
     // Output results with full precision
     console.log('\n=== RESULTS ===\n');
@@ -53,31 +82,25 @@ async function runBenchmarks() {
     console.log('-'.repeat(102));
 
     // Results
-    for (const task of suite.tasks) {
-        if (task.result && task.result.samples && task.result.samples.length > 0) {
-            // tinybench v6: result has hz (ops/sec), mean (ms), rme (relative margin of error)
-            const opsSec = task.result.hz.toFixed(2);
-            const avgTime = (task.result.mean * 1e6).toFixed(2); // Convert ms to nanoseconds
-            const margin = task.result.rme.toFixed(2);
-            const samples = task.result.samples.length;
+    for (const result of results) {
+        const opsSec = result.throughput?.toFixed(2) || 'N/A';
+        const avgTime = (result.latency * 1e6).toFixed(2); // Convert ms to nanoseconds
+        const margin = result.rme?.toFixed(2) || 'N/A';
+        const samples = result.samples || 0;
 
-            const row = [
-                task.name.padEnd(45),
-                opsSec.padStart(15),
-                avgTime.padStart(20),
-                (margin + '%').padStart(12),
-                samples.toString().padStart(10)
-            ].join('');
-            console.log(row);
-        } else if (task.result?.error) {
-            console.log(`${task.name.padEnd(45)} ERROR: ${task.result.error.message}`);
-        } else {
-            console.log(`${task.name.padEnd(45)} No results`);
-        }
+        const row = [
+            result.name.padEnd(45),
+            opsSec.padStart(15),
+            avgTime.padStart(20),
+            (margin + '%').padStart(12),
+            samples.toString().padStart(10)
+        ].join('');
+        console.log(row);
     }
 }
 
-runBenchmarks().catch((err) => {
-    console.error('Benchmark failed:', err);
-    process.exit(1);
-});
+runBenchmarks()
+    .catch((err) => {
+        console.error('Benchmark failed:', err);
+        process.exit(1);
+    });

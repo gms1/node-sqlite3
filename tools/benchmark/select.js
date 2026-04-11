@@ -105,19 +105,16 @@ module.exports = {
                         const stmt = db.prepare('SELECT * FROM foo');
                         stmt.all((err, rows) => {
                             if (err) {
-                                stmt.finalize();
-                                reject(err);
+                                stmt.finalize(() => reject(err));
                                 return;
                             }
                             stmt.reset();
                             stmt.all((err2, rows2) => {
                                 if (err2) {
-                                    stmt.finalize();
-                                    reject(err2);
+                                    stmt.finalize(() => reject(err2));
                                     return;
                                 }
-                                stmt.finalize();
-                                resolve();
+                                stmt.finalize(() => resolve());
                             });
                         });
                     });
