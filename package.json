@@ -35,8 +35,8 @@
   "files": [
     "binding.gyp",
     "deps/",
-    "lib/*.js",
-    "lib/*.d.ts",
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
     "src/"
   ],
   "repository": {
