@@ -203,7 +203,7 @@ Uses ESLint with configuration in `.eslintrc.js`.
 Benchmarks use tinybench with proper setup/teardown separation:
 
 ```bash
-node tools/benchmark/run.js
+node tools/benchmark-internal/run.js
 ```
 
 See [Project Overview](project-overview.md) for benchmark details.

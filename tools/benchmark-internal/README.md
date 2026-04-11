@@ -22,13 +22,13 @@ yarn install
 Run all benchmarks:
 
 ```bash
-node tools/benchmark/run.js
+node tools/benchmark-internal/run.js
 ```
 
 Or from the benchmark directory:
 
 ```bash
-cd tools/benchmark
+cd tools/benchmark-internal
 node run.js
 ```
 
@@ -53,7 +53,7 @@ Measures performance of different data insertion approaches.
 
 **Usage:**
 ```bash
-node tools/benchmark/run.js
+node tools/benchmark-internal/run.js
 ```
 
 **Expected output:**
@@ -83,7 +83,7 @@ Measures performance of different data retrieval approaches.
 
 **Usage:**
 ```bash
-node tools/benchmark/run.js
+node tools/benchmark-internal/run.js
 ```
 
 **Expected output:**

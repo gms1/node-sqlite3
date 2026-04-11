@@ -161,7 +161,7 @@ node-gyp rebuild --debug
 yarn test
 
 # Run benchmarks
-node tools/benchmark/run.js
+node tools/benchmark-internal/run.js
 ```
 
 ## Related Files
