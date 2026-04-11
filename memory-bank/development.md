@@ -200,7 +200,27 @@ Uses ESLint with configuration in `.eslintrc.js`.
 
 ## Benchmarks
 
-Benchmarks use tinybench with proper setup/teardown separation:
+### Driver Comparison Benchmarks
+
+The `tools/benchmark-drivers` directory contains a comprehensive benchmark suite comparing different SQLite drivers:
+
+```bash
+cd tools/benchmark-drivers
+npm install
+node index.js
+```
+
+This compares `@homeofthings/sqlite3` against:
+- `better-sqlite3` - Synchronous, high-performance
+- `node:sqlite` - Built-in Node.js SQLite (v22.6.0+)
+
+**Event Loop Utilization**: The benchmarks measure event loop availability:
+- Sync drivers (`better-sqlite3`, `node:sqlite`): 0% - blocks completely
+- Async drivers (`@homeofthings/sqlite3`): 100% - non-blocking
+
+### Internal Benchmarks
+
+Internal performance benchmarks are in `tools/benchmark-internal`:
 
 ```bash
 node tools/benchmark-internal/run.js
