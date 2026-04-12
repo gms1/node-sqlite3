@@ -30,6 +30,10 @@ exports.default = [
         type: 'update-transaction', table: 'small', columns: ['nul', 'integer', 'real', 'text'],
         description: 'updating 100 rows in a single transaction'
     },
+    {
+        type: 'select-aggregate', table: 'small', columns: ['nul', 'integer', 'real', 'text'],
+        description: 'aggregate functions (COUNT, SUM, AVG, MIN, MAX) with WHERE clause'
+    },
 ];
 
 exports.searchable = [
@@ -82,6 +86,7 @@ exports.searchable = [
     { type: 'update-transaction', table: 'small', columns: ['blob'] },
     { type: 'update-transaction', table: 'large_text', columns: ['text'] },
     { type: 'update-transaction', table: 'large_blob', columns: ['blob'] },
+    { type: 'select-aggregate', table: 'small', columns: ['nul', 'integer', 'real', 'text'] },
 ];
 
 (() => {

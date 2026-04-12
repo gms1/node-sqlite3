@@ -98,6 +98,7 @@ node index.js --use-local insert small
 | `select` | Reading single rows by primary key |
 | `select-all` | Reading 100 rows into an array |
 | `select-iterate` | Iterating over 100 rows |
+| `select-aggregate` | Aggregate functions (COUNT, SUM, AVG, MIN, MAX) with WHERE clause |
 | `insert` | Inserting single rows |
 | `update` | Updating single rows |
 | `transaction` | Inserting 100 rows in a single transaction |
@@ -168,6 +169,27 @@ node:sqlite           x 127 ops/sec ±10.75% (event loop: 100%, 7.88ms/op)
 
 For I/O-bound operations, the async driver's overhead becomes negligible compared to disk I/O wait time. The ability to interleave other work becomes an advantage - the event loop can process other tasks while waiting for data.
 
+### Long Running Query Performance
+
+With such a small amount of data we are currently using, it's not so easy to simulate longer running queries. That's why I tried it here using simple aggregation.
+
+Aggregate functions (COUNT, SUM, AVG, MIN, MAX) with WHERE clauses show even more dramatic async advantages:
+
+```
+--- aggregate functions (COUNT, SUM, AVG, MIN, MAX) with WHERE clause ---
+better-sqlite3        x 11,246 ops/sec ±0.27% (event loop: 100%, 88.9μs/op)
+@homeofthings/sqlite3 x 68,779 ops/sec ±0.60% (event loop: 47%, 6.8μs/op)
+node:sqlite           x 10,982 ops/sec ±0.40% (event loop: 100%, 91.1μs/op)
+```
+
+**Why async wins for aggregation:**
+
+1. **6x higher throughput**: 68,779 vs 11,246 ops/sec
+2. **13x less event loop blocking**: 6.8μs/op vs 88.9μs/op
+3. **Same pattern as large data**: I/O-bound operations benefit from async
+
+Aggregation queries scan 1000 rows per operation. The async driver's ability to yield during I/O makes it significantly more efficient for these multi-row operations.
+
 ## Project Structure
 
 ```
@@ -180,6 +202,7 @@ For I/O-bound operations, the async driver's overhead becomes negligible compare
 │   ├── insert.js      # Insert benchmark
 │   ├── select.js      # Single row select benchmark
 │   ├── select-all.js  # Multi-row select benchmark
+│   ├── select-aggregate.js # Aggregate functions benchmark
 │   ├── select-iterate.js # Iteration benchmark
 │   └── transaction.js  # Transaction benchmark
 └── temp/              # Temporary database files (auto-created)
