@@ -141,7 +141,8 @@ The **event loop** metrics show how the driver affects the event loop (measured 
 | `@homeofthings/sqlite3` | ~47%        | ~5.3μs/op   | 3.3x more blocking than sync drivers            |
 | `node:sqlite`           | 100%        | ~1.8μs/op   | Blocks completely - all time is event loop time |
 
-Such metric shows the real cost: dependend on the operation, async drivers may even block the event loop **longer in total** for the same amount of work, even though they don't block it **completely** for the whole operation, like the sync drivers do. However, async drivers also do not always block the event loop **longer in total**:
+Such metric shows the real cost. 
+For some operations, especially on very fast operations lasting only a few microseconds, async drivers **may** even block the event loop **longer in total**, even though they don't block it **completely** for the whole operation, like the sync drivers do. Here, for example, even for very short operations, the event loopis is less burdened by the async driver:
 
 ```
 --- inserting rows individually ---
@@ -171,7 +172,7 @@ For I/O-bound operations, the async driver's overhead becomes negligible compare
 
 ### Long Running Query Performance
 
-With such a small amount of data we are currently using, it's not so easy to simulate longer running queries. That's why I tried it here using simple aggregation.
+With such a small amount of data we are currently using for this benchmark, it's not so easy to simulate longer running queries. That's why I tried it here using simple aggregation.
 
 Aggregate functions (COUNT, SUM, AVG, MIN, MAX) with WHERE clauses show even more dramatic async advantages:
 
