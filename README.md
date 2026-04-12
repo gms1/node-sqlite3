@@ -245,6 +245,34 @@ npm install @homeofthings/sqlite3 --build-from-source --sqlite_libname=sqlcipher
 npm test
 ```
 
+# Benchmarks
+
+## Driver Comparison
+
+The `tools/benchmark-drivers` directory contains a comprehensive benchmark suite comparing different SQLite drivers for Node.js:
+
+```bash
+cd tools/benchmark-drivers
+npm install
+node index.js
+```
+
+This compares `@homeofthings/sqlite3` against other popular SQLite drivers:
+- `better-sqlite3` - Synchronous, high-performance
+- `node:sqlite` - Built-in Node.js SQLite (v22.6.0+)
+
+**Key insight**: Async drivers like `@homeofthings/sqlite3` show lower raw throughput but provide better event loop availability, allowing other operations to proceed concurrently. Sync drivers block the event loop completely.
+
+## Internal Benchmarks
+
+Internal performance benchmarks are available in `tools/benchmark-internal`:
+
+```bash
+node tools/benchmark-internal/run.js
+```
+
+See [tools/benchmark-drivers/README.md](tools/benchmark-drivers/README.md) for details.
+
 # Contributors
 
 * [Daniel Lockyer](https://github.com/daniellockyer)

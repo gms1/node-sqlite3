@@ -160,7 +160,10 @@ node-gyp rebuild --debug
 # Run tests
 yarn test
 
-# Run benchmarks
+# Run driver comparison benchmarks
+cd tools/benchmark-drivers && npm install && node index.js
+
+# Run internal benchmarks
 node tools/benchmark-internal/run.js
 ```
 
