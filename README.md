@@ -298,6 +298,7 @@ Thanks to [Orlando Vazquez](https://github.com/orlandov),
 [Ryan Dahl](https://github.com/ry) for their SQLite bindings for node, and to mraleph on Freenode's #v8 for answering questions.
 
 This module was originally created by [Mapbox](https://mapbox.com/), then it was then taken over by [Ghost](https://ghost.org), but was then deprecated without prior notice, so that the original is no longer maintained. See [TryGhost/node-sqlite3](https://github.com/TryGhost/node-sqlite3)
+
 I still hope that it will eventually be taken over by a larger organization, but in the meantime, I'm trying to maintain this fork here.
 
 # Changelog
