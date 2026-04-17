@@ -198,6 +198,18 @@ Uses ESLint with configuration in `.eslintrc.js`.
 - Follow existing naming conventions
 - Add JSDoc comments for public APIs
 
+## Tools
+
+### SQLite Version Bump
+
+The `tools/bin/bump-sqlite.sh` script automates upgrading the bundled SQLite version:
+
+```bash
+# Auto-detect latest version
+tools/bin/bump-sqlite.sh --usage
+
+```
+
 ## Benchmarks
 
 ### Driver Comparison Benchmarks

@@ -2,6 +2,23 @@
 
 ## Technical Decisions
 
+### 2026-04-17: SQLite Version Bump Script Design
+
+**Decision**: Create `tools/bin/bump-sqlite.sh` as a standalone bash script in `tools/bin/` (not a per-script subdirectory)
+
+**Rationale**:
+- `tools/bin/` is the designated directory for all utility scripts — avoids creating a sub-directory per script
+- Bash script chosen over Node.js: simpler for git operations, no dependency installation needed
+- 17-step workflow: parse args → clean tree → checkout main → fetch → check newer → cooldown → pull → create branch → download/replace → update gypi → update readme → check other changes → build → lint → test → commit → push
+- `FROM_VERSION` global variable set in step 5 (before any file modifications) and reused in steps 8, 9, 10, 16 — avoids re-reading the gypi file after it has been updated
+- Auto-detection of latest SQLite version from sqlite.org download page (optional `<new-version>` argument)
+- Cooldown period (default 7 days) to let new SQLite releases settle before adoption
+
+**Files Created**:
+- `tools/bin/bump-sqlite.sh` — Main script
+
+---
+
 ### 2026-04-10: Queue Processing Deadlock Fix
 
 **Decision**: Track `pending` counter to detect synchronous operations in `Database::Process()`
