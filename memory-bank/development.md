@@ -205,9 +205,20 @@ Uses ESLint with configuration in `.eslintrc.js`.
 The `tools/bin/bump-sqlite.sh` script automates upgrading the bundled SQLite version:
 
 ```bash
-# Auto-detect latest version
-tools/bin/bump-sqlite.sh --usage
+# Show usage
+tools/bin/bump-sqlite.sh --help
 
+# Preview without making changes
+tools/bin/bump-sqlite.sh --dry-run
+
+# Commit but don't push
+tools/bin/bump-sqlite.sh --no-push
+
+# Specify version explicitly
+tools/bin/bump-sqlite.sh 3510400
+
+# Skip cooldown period check
+tools/bin/bump-sqlite.sh --force 3510400
 ```
 
 ## Benchmarks

@@ -231,7 +231,11 @@ step2_check_clean_tree() {
 
     if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
         echo "ERROR: Source tree has uncommitted changes. Please commit or stash first." >&2
-        exit "$EXIT_DIRTY_TREE"
+        if [[ "$DRY_RUN" == true ]]; then
+            log_dry "Would exit with ${EXIT_DIRTY_TREE}"
+        else
+             exit "$EXIT_DIRTY_TREE"
+        fi
     fi
 
     local untracked
@@ -590,31 +594,41 @@ step11_update_readme() {
 step12_check_other_changes() {
     log_step "12" "Check for other required changes"
 
+    local from_human
+    from_human="$(numeric_to_human "$FROM_VERSION")"
     local to_human
     to_human="$(numeric_to_human "$NEW_VERSION")"
 
-    log "Fetching SQLite changelog for ${to_human}..."
+    log "Fetching SQLite changelog from ${from_human} to ${to_human}..."
 
     local changes_html
     changes_html="$(curl -sL "$SQLITE_CHANGES_URL" 2>/dev/null || true)"
 
     if [[ -n "$changes_html" ]]; then
-        # Extract changelog entries for the target version
-        # SQLite changes.html has sections per version
+        # Extract changelog entries for ALL versions between from and to.
+        # SQLite changes.html lists versions in reverse chronological order
+        # (newest first), with each version section starting at an <h3> heading
+        # like: <h3>2025-04-15 (3.51.4)</h3>
+        # We capture from the to_human heading down to (but not including)
+        # the from_human heading, which gives us all intermediate versions.
         local changelog_section
         changelog_section="$(echo "$changes_html" | \
-            sed -n "/<h[23]>/,/<h[23]>/p" | \
-            sed -n "/${to_human}/,/<h[23]>/p" | \
-            head -50 || true)"
+            awk -v from="$from_human" -v to="$to_human" '
+                /<h[23]>/ {
+                    if (index($0, from) > 0 && index($0, to) == 0) { capturing = 0; next }
+                    if (index($0, to) > 0) { capturing = 1 }
+                }
+                capturing { print }
+            ' | head -100 || true)"
 
         if [[ -n "$changelog_section" ]]; then
             echo ""
-            echo "=== SQLite Changelog for ${to_human} ==="
+            echo "=== SQLite Changelog: ${from_human} → ${to_human} ==="
             # Strip HTML tags for display
-            echo "$changelog_section" | sed 's/<[^>]*>//g' | sed '/^$/d' | head -30
+            echo "$changelog_section" | sed 's/<[^>]*>//g' | sed '/^$/d' | head -50
             echo "=== End of changelog excerpt ==="
         else
-            log "Could not extract changelog for ${to_human}"
+            log "Could not extract changelog for ${from_human} → ${to_human}"
         fi
     else
         log "WARNING: Could not fetch SQLite changelog"

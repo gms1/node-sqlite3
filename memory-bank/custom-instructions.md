@@ -7,6 +7,12 @@
 - Do not prefix commands with `cd /home/gms/gms/projects/hot/node-sqlite3 &&` when the command should run in the current workspace directory
 - Use `yarn test`, `yarn lint` instead of npm run scripts (e.g., avoid `npm run test`, use `yarn test` instead)
 
+## Plans
+
+- Never refer to a plan (files in `plans/`) from any memory bank file except `activeContext.md`
+- Plans are temporary: once implemented, they are moved from active context to `progress.md`, and the plan file may be deleted
+- References to plans in `progress.md`, `decisionLog.md`, `development.md`, or `project-overview.md` would become stale/broken
+
 ## Notes
 
 These instructions apply to all future sessions working in this project.
