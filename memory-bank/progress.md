@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-04-17:
+
+### SQLite Version Bump Script
+- Created [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) — automated 17-step script for upgrading bundled SQLite
+- Features: auto-detect latest version from sqlite.org, cooldown period check, checksum verification, dry-run mode
+- Bugs fixed during real-world testing:
+  - `git rm` instead of `rm` for old tarball (stages deletion for commit)
+  - `${tmp_dir:-}` in EXIT trap to avoid unbound variable error
+  - `FROM_VERSION` global variable to preserve original version for commit message (gypi file already updated by step 10)
+
 ## 2026-04-10:
 
 ### v6.3.0

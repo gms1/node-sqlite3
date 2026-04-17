@@ -37,6 +37,11 @@ node-sqlite3/
 │   ├── common-sqlite.gypi  # Common build config
 │   └── sqlite-autoconf-*.tar.gz  # SQLite source
 ├── test/                   # Test suite (mocha)
+├── tools/                  # Development tools
+│   ├── bin/                # Utility scripts
+│   │   └── bump-sqlite.sh  # SQLite version bump automation
+│   ├── benchmark-drivers/  # Driver comparison benchmarks
+│   └── benchmark-internal/ # Internal performance benchmarks
 └── binding.gyp             # node-gyp build configuration
 ```
 

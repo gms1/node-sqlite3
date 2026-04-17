@@ -15,8 +15,6 @@
 #   <new-version>        New SQLite version in numeric format (e.g., 3510400)
 #                        If omitted, the latest version is auto-detected from sqlite.org
 #
-# See plans/bump-sqlite-script.md for the full design document.
-
 set -euo pipefail
 
 # ─── Constants ────────────────────────────────────────────────────────────────
