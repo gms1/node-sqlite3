@@ -36,6 +36,7 @@ node-sqlite3/
 │   ├── sqlite3.gyp         # SQLite build config
 │   ├── common-sqlite.gypi  # Common build config
 │   └── sqlite-autoconf-*.tar.gz  # SQLite source
+├── prebuilds/              # Bundled prebuilt binaries (not in git, included in npm package)
 ├── test/                   # Test suite (mocha)
 ├── tools/                  # Development tools
 │   ├── bin/                # Utility scripts
@@ -56,8 +57,10 @@ node-sqlite3/
   - Cached database support via `sqlite3.cached.Database`
   - Event emitter integration for `trace`, `profile`, `change` events
 
-- **sqlite3-binding.js**: Loads the native addon using the `bindings` package
-  - Searches for `node_sqlite3.node` in build/Debug or build/Release
+- **sqlite3-binding.js**: Loads the native addon using `node-gyp-build`
+  - Passes project root (`path.join(__dirname, "..")`) since `node-gyp-build` looks for `prebuilds/` and `build/` relative to the passed directory
+  - Resolves prebuilt binary from `prebuilds/` directory, falling back to `build/` directory
+  - Local builds in `build/` take precedence over prebuilts; `npx node-gyp rebuild` forces a local build
 
 - **trace.js**: Stack trace augmentation for verbose mode
   - Extends error stack traces to include operation context
@@ -91,16 +94,15 @@ node-sqlite3/
 ## Dependencies
 
 ### Runtime
-- `bindings`: ^1.5.0 - Native addon loader
-- `node-addon-api`: ^8.0.0 - C++ NAPI wrapper
-- `prebuild-install`: ^7.1.3 - Prebuilt binary downloader
-- `tar`: ^7.5.10 - Tarball handling
+- `node-addon-api`: ^8.7.0 - C++ NAPI wrapper
+- `node-gyp-build`: ^4.8.4 - Native addon binary loader (resolves prebuilt or falls back to source build)
+- `tar`: ^7.5.13 - Tarball handling
 
 ### Development
-- `mocha`: 10.2.0 - Test framework
-- `eslint`: 8.56.0 - Linting
-- `prebuild`: 13.0.1 - Prebuilt binary builder
-- `tinybench`: ^2.9.0 - Benchmarking
+- `mocha`: 11.7.5 - Test framework
+- `eslint`: ^10.2.0 - Linting
+- `prebuildify`: ^6.0.1 - Prebuilt binary builder
+- `tinybench`: ^6.0.0 - Benchmarking
 
 ### Peer
 - `node-gyp`: 12.x - Native addon build tool
@@ -141,11 +143,12 @@ This enables:
 
 ## Module Resolution
 
-The `bindings` package searches for the native addon in this order:
-1. `build/Debug/node_sqlite3.node`
-2. `build/Release/node_sqlite3.node`
+The `node-gyp-build` package resolves the native addon in this order:
+1. `build/Release/node_sqlite3.node` — local release build
+2. `build/Debug/node_sqlite3.node` — local debug build
+3. `prebuilds/<platform>-<arch>/@homeofthings+sqlite3.<libc>.node` — bundled prebuilt binary
 
-If both exist, Debug takes precedence.
+Local builds take precedence over prebuilt binaries. To force a source build (which creates `build/Release/` and takes precedence), use `npx node-gyp rebuild`.
 
 ## Common Commands
 
@@ -153,7 +156,7 @@ If both exist, Debug takes precedence.
 # Install dependencies
 yarn install
 
-# Build native addon (uses prebuild or falls back to node-gyp)
+# Build native addon (uses prebuilt binary or falls back to node-gyp)
 yarn install
 
 # Rebuild native addon
@@ -164,6 +167,9 @@ node-gyp rebuild --debug
 
 # Run tests
 yarn test
+
+# Build prebuilt binaries
+yarn prebuild
 
 # Run driver comparison benchmarks
 cd tools/benchmark-drivers && npm install && node index.js

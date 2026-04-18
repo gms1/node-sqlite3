@@ -2,6 +2,33 @@
 
 ## Technical Decisions
 
+### 2026-04-18: Prebuild Migration (prebuild/prebuild-install → prebuildify/node-gyp-build)
+
+**Decision**: Replace deprecated `prebuild` and `prebuild-install` with `prebuildify` and `node-gyp-build`
+
+**Rationale**:
+- `prebuild` and `prebuild-install` are deprecated and no longer maintained
+- `prebuildify` bundles prebuilt binaries inside the npm package, eliminating the need for a separate download step during `npm install`
+- `node-gyp-build` replaces both `bindings` (for local builds) and `prebuild-install` (for downloading prebuilts) with a single module
+- `node-gyp-build` checks `build/Release/` before `prebuilds/`, so local builds always take precedence
+- The `node-gyp-build` CLI (used as `install` script) automatic fallback to source build
+- `--tag-libc` flag ensures musl/glibc differentiation for Linux binaries
+
+**Key Changes**:
+- Replaced `bindings` + `prebuild-install` → `node-gyp-build`; replaced `prebuild` → `prebuildify`
+- Added `"install": "node-gyp-build"` script (tests prebuilt, falls back to `node-gyp rebuild`)
+- `lib/sqlite3-binding.js` must pass project root (`path.join(__dirname, "..")`) to `node-gyp-build`, not `__dirname`
+- Removed `binary` config and `upload` script from `package.json`
+- Updated CI: replaced `yarn upload` with `gh release upload`, added `package` job for PRs
+
+**Source Builder Experience**:
+- `npx node-gyp rebuild` works
+- Local builds in `build/Release/` take precedence over prebuilts
+- No separate download step needed — prebuilts are bundled in the npm package
+
+
+---
+
 ### 2026-04-17: SQLite Version Bump Script Design
 
 **Decision**: Create `tools/bin/bump-sqlite.sh` as a standalone bash script in `tools/bin/` (not a per-script subdirectory)
@@ -10,7 +37,7 @@
 - `tools/bin/` is the designated directory for all utility scripts — avoids creating a sub-directory per script
 - Bash script chosen over Node.js: simpler for git operations, no dependency installation needed
 - 17-step workflow: parse args → clean tree → checkout main → fetch → check newer → cooldown → pull → create branch → download/replace → update gypi → update readme → check other changes → build → lint → test → commit → push
-- `FROM_VERSION` global variable set in step 5 (before any file modifications) and reused in steps 8, 9, 10, 16 — avoids re-reading the gypi file after it has been updated
+- `FROM_VERSION` global variable set in step 5 (before any file modifications) and reused in steps 8, 9, 10 — avoids re-reading the gypi file after it has been updated
 - Auto-detection of latest SQLite version from sqlite.org download page (optional `<new-version>` argument)
 - Cooldown period (default 7 days) to let new SQLite releases settle before adoption
 
@@ -171,12 +198,14 @@ if (locked && pending == before_pending) {
 
 ### Build System Choice
 
-**Decision**: Use node-gyp with prebuild for binary distribution
+**Decision**: Use node-gyp with prebuildify for binary distribution
 
 **Rationale**:
 - Established tool for native addons
-- Prebuilt binaries reduce installation friction
-- Supports multiple NAPI versions (3, 6)
+- Prebuilt binaries bundled inside npm package (no separate download needed)
+- `node-gyp-build` resolves prebuilt binaries or falls back to source build
+- `prebuildify` with `--tag-libc` ensures musl/glibc differentiation
+- `npx node-gyp rebuild` for custom builds (SQLCipher, etc.)
 
 ---
 

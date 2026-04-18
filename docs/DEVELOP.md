@@ -22,9 +22,9 @@ This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-vers
    ```
 
    The CI workflow will automatically:
-   - Build binaries for all platforms
-   - Upload them as release assets
-   - Publish the package to npm
+   - Build prebuilt binaries for all platforms
+   - Upload them to GitHub Release
+   - Publish the package to npm (with bundled prebuilt binaries)
 
 3. ** Edit the generated Pre-release
   - select "Generate release notes" and adjust them to your needs
@@ -44,12 +44,15 @@ When you push a tag (e.g., `v6.0.2`), the CI workflow will:
 
 1. Build prebuilt binaries for:
    - macOS (x64, arm64)
-   - Linux (x64, arm64)
-   - Windows (x64, ia32)
+   - Linux glibc (x64, arm64)
+   - Linux musl (x64, arm64)
+   - Windows (x64)
 
 2. Upload binaries to GitHub Release
 
-3. Publish to npm using trusted publishing (no NPM_TOKEN required)
+3. Merge all prebuilt binaries into the npm package and publish to npm
+
+On PRs and pushes to main (non-tag), the CI also creates an npm tarball artifact (via `npm pack`) so the package contents can be inspected before publishing.
 
 ## Checking the release
 
