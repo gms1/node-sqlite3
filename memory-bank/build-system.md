@@ -57,7 +57,7 @@ SQLite library build configuration:
 ### Standard Build
 
 ```bash
-# Install with prebuild or compile
+# Install with prebuilt binaries or compile from source
 yarn install
 
 # Explicit rebuild
@@ -125,17 +125,11 @@ The `NAPI_VERSION` define is set via `napi_build_version` variable in binding.gy
 **How it works**:
 - The `napi_build_version` variable is automatically set by node-gyp based on the target Node.js version
 - For local builds, it's stored in `build/config.gypi` (e.g., `"napi_build_version": "9"`)
-- For prebuilds, the `prebuild` package passes it via `--napi_build_version=<version>` flag
+- For prebuilds, `prebuildify` passes it via the `--napi` flag which builds a single NAPI-version-agnostic binary (named `@homeofthings+sqlite3.<libc>.node`). The actual NAPI version used at compile time is determined by the Node.js version running the build (e.g., Node 24 supports NAPI v9). Since NAPI is backward compatible, a binary built with NAPI v9 runs on any Node.js supporting v9 or lower.
 
 ### NAPI Versions Configuration
 
-The `package.json` specifies which NAPI versions to build prebuilt binaries for:
-
-```json
-"binary": {
-  "napi_versions": [3, 6]
-}
-```
+With `prebuildify --napi`, the NAPI version is auto-detected from the build Node.js version — it is not explicitly configured. The CI builds prebuilds on Node 24 (which supports NAPI v9), producing a single `@homeofthings+sqlite3.glibc.node` binary per platform. The historical `[3, 6]` configuration from the old `binary.napi_versions` package.json field is no longer used.
 
 **Why multiple versions?**
 
@@ -183,40 +177,61 @@ The `ASSERT_STATUS` macro in src/macros.h is enabled when `DEBUG` is defined:
 The native addon is loaded via lib/sqlite3-binding.js:
 
 ```javascript
-module.exports = require('bindings')('node_sqlite3.node');
+module.exports = require('node-gyp-build')(require('path').join(__dirname, '..'));
 ```
 
-The `bindings` package searches:
-1. `build/Debug/node_sqlite3.node`
-2. `build/Release/node_sqlite3.node`
+The project root directory (`path.join(__dirname, "..")`) is passed instead of `__dirname` because `node-gyp-build` looks for `prebuilds/` and `build/` directories relative to the path it receives. Since `sqlite3-binding.js` is in `lib/`, passing `__dirname` would cause it to look in `lib/prebuilds/` and `lib/build/` — which do not exist.
 
-**Note**: Debug builds take precedence if both exist.
+The `node-gyp-build` package resolves the native binary in this order:
+1. `build/Release/node_sqlite3.node` — local release build
+2. `build/Debug/node_sqlite3.node` — local debug build
+3. `prebuilds/<platform>-<arch>/@homeofthings+sqlite3.<libc>.node` — bundled prebuilt binary
+
+**Note**: Local builds take precedence over prebuilt binaries. To force a source build (which creates `build/Release/` and takes precedence), use:
+
+```bash
+npx node-gyp rebuild
+```
 
 ## Prebuilt Binaries
 
-### Downloading Prebuilts
-
-```bash
-yarn install  # Automatically downloads prebuilt if available
-```
+Prebuilt binaries are bundled inside the npm package using `prebuildify` and loaded at runtime by `node-gyp-build`. This eliminates the need for a separate download step during `npm install`.
 
 ### Building Prebuilts
 
 ```bash
-yarn prebuild  # Build for all NAPI versions
+yarn prebuild  # Build prebuilt binaries using prebuildify
 ```
 
-### Uploading Prebuilts
+The `prebuild` script runs: `prebuildify --napi --strip --tag-libc`
 
-```bash
-yarn upload  # Upload to GitHub releases
-```
+Flags:
+- `--napi`: Build a NAPI-version-agnostic binary (produces `@homeofthings+sqlite3.*.node`)
+- `--strip`: Strip debug symbols from binaries
+- `--tag-libc`: Tag binaries with libc variant (glibc vs musl)
+
+### Binary Naming Convention
+
+With `--tag-libc`, prebuildify produces binaries tagged with the libc variant:
+
+| Platform      | Binary Name            |
+|---------------|------------------------|
+| Linux (glibc) | `@homeofthings+sqlite3.glibc.node` |
+| Linux (musl)  | `@homeofthings+sqlite3.musl.node`  |
+| macOS         | `@homeofthings+sqlite3.node`       |
+| Windows       | `@homeofthings+sqlite3.node`       |
+
+At runtime, `node-gyp-build` determines the libc variant by checking for Alpine Linux (via `/etc/alpine-release`) — if present, it selects the `musl` binary; otherwise, it selects `glibc`. It does not depend on the `detect-libc` package.
+
+### Source Build Fallback
+
+The `install` script runs `node-gyp-build` which tests whether the prebuilt binary works. If it does, no compilation is needed. If it doesn't (unsupported platform), `node-gyp-build` automatically falls back to `node-gyp rebuild`.
 
 ## Platform Support
 
 - Node.js >= 20.17.0
-- NAPI versions: 3, 6
-- Platforms: Linux, macOS, Windows (see prebuild configuration)
+- NAPI: version-agnostic (`@homeofthings+sqlite3.*.node`), built with NAPI v9 on Node 24
+- Platforms: Linux (glibc + musl), macOS, Windows (see CI configuration)
 
 ## Security Hardening
 
@@ -305,9 +320,10 @@ Applied to all macOS builds (see `binding.gyp`):
 
 ### Native Module Not Found
 
-1. Verify build output exists: `ls build/Release/node_sqlite3.node`
-2. Check if bindings package is installed: `yarn install`
+1. Verify prebuilt binary exists: `ls prebuilds/`
+2. Verify build output exists: `ls build/Release/node_sqlite3.node`
 3. Try explicit rebuild: `yarn rebuild`
+4. Force source build: `npx node-gyp rebuild`
 
 ### Debug Symbols Missing
 

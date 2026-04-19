@@ -15,6 +15,9 @@
       },
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"],
+      "dependencies": [
+        "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except"
+      ],
       "conditions": [
         ["sqlite != 'internal'", {
             "include_dirs": [
@@ -36,7 +39,6 @@
         },
         {
             "dependencies": [
-              "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except",
               "deps/sqlite3.gyp:sqlite3"
             ]
         }

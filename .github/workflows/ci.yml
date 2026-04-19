@@ -63,48 +63,82 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - macos-latest
-          - ubuntu-24.04
-          - windows-latest
-        host:
-          - x64
-        target:
-          - x64
-        node:
-          - 20
-          - 22
-          - 24
-        exclude:
-          # Node 20 x64 crashes under Rosetta 2 on ARM64 macOS runners
-          - os: macos-latest
-            node: 20
-            host: x64
         include:
           - os: macos-latest
+            host: x64
+            target: x64
+            platform: macos-x64
             node: 20
-            host: arm64
-            target: arm64
           - os: macos-latest
+            host: x64
+            target: x64
+            platform: macos-x64
             node: 22
-            host: arm64
-            target: arm64
           - os: macos-latest
+            host: x64
+            target: x64
+            platform: macos-x64
             node: 24
-            host: arm64
-            target: arm64
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-24.04
+            host: x64
+            target: x64
+            platform: linux-x64
             node: 20
-            host: arm64
-            target: arm64
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-24.04
+            host: x64
+            target: x64
+            platform: linux-x64
             node: 22
-            host: arm64
-            target: arm64
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-24.04
+            host: x64
+            target: x64
+            platform: linux-x64
             node: 24
+          - os: windows-latest
+            host: x64
+            target: x64
+            platform: win32-x64
+            node: 20
+          - os: windows-latest
+            host: x64
+            target: x64
+            platform: win32-x64
+            node: 22
+          - os: windows-latest
+            host: x64
+            target: x64
+            platform: win32-x64
+            node: 24
+          - os: macos-latest
             host: arm64
             target: arm64
+            platform: macos-arm64
+            node: 20
+          - os: macos-latest
+            host: arm64
+            target: arm64
+            platform: macos-arm64
+            node: 22
+          - os: macos-latest
+            host: arm64
+            target: arm64
+            platform: macos-arm64
+            node: 24
+          - os: ubuntu-24.04-arm
+            host: arm64
+            target: arm64
+            platform: linux-arm64
+            node: 20
+          - os: ubuntu-24.04-arm
+            host: arm64
+            target: arm64
+            platform: linux-arm64
+            node: 22
+          - os: ubuntu-24.04-arm
+            host: arm64
+            target: arm64
+            platform: linux-arm64
+            node: 24
     name: ${{ matrix.os }} (node=${{ matrix.node }}, host=${{ matrix.host }}, target=${{ matrix.target }})
     steps:
       - uses: actions/checkout@v6
@@ -143,16 +177,17 @@ jobs:
           echo "CXXFLAGS=${CXXFLAGS:-} -include ../src/gcc-preinclude.h" >> $GITHUB_ENV
 
       - name: Build binaries
-        run: yarn prebuild -a ${{ env.TARGET }}
+        run: yarn prebuild
 
       - name: Print binary info
         if: contains(matrix.os, 'ubuntu')
         run: |
-          ldd build/**/node_sqlite3.node
+          BIN=$(find prebuilds -name "*.node" | head -1)
+          ldd "$BIN"
           echo "---"
-          nm build/**/node_sqlite3.node | grep "GLIBC_" | c++filt || true
+          nm "$BIN" | grep "GLIBC_" | c++filt || true
           echo "---"
-          file build/**/node_sqlite3.node
+          file "$BIN"
 
       - name: Run tests
         run: yarn test
@@ -161,13 +196,15 @@ jobs:
         uses: actions/upload-artifact@v7
         if: matrix.node == 24
         with:
-          name: prebuilt-binaries-${{ matrix.os }}-${{ matrix.host }}
+          name: prebuilt-binaries-${{ matrix.platform }}
           path: prebuilds/*
           retention-days: 7
 
       - name: Upload binaries to GitHub Release
-        run: yarn upload --upload-all ${{ github.token }}
+        run: gh release upload ${GITHUB_REF#refs/tags/} prebuilds/* --clobber
         if: matrix.node == 24 && startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   build-musl:
     permissions:
@@ -209,8 +246,54 @@ jobs:
           retention-days: 7
 
       - name: Upload binaries to GitHub Release
-        run: yarn install --frozen-lockfile --ignore-scripts && yarn upload --upload-all ${{ github.token }}
+        run: |
+          gh release upload ${GITHUB_REF#refs/tags/} prebuilds/* --clobber
         if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  package:
+    needs: [build]
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request') || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+
+      - name: Download all prebuilt binary artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: prebuilds-artifacts
+          merge-multiple: true
+
+      - name: Merge prebuilds into package
+        run: |
+          mkdir -p prebuilds
+          # Each artifact may contain platform-specific subdirs
+          # Copy all prebuilds from artifacts into prebuilds/
+          cp -r prebuilds-artifacts/*/ prebuilds/ 2>/dev/null || true
+          # Also handle flat structure (files directly in artifact root)
+          cp -r prebuilds-artifacts/ prebuilds/ 2>/dev/null || true
+          # Verify the prebuilds are present
+          find prebuilds -name '*.node' -type f
+
+      - name: Create npm tarball
+        run: |
+          npm pack
+          echo "npm tarball created:"
+          ls -la *.tgz
+
+      - name: Upload npm tarball as commit artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-package-tarball
+          path: '*.tgz'
+          retention-days: 7
 
   publish-npm:
     needs: [build, build-musl]
@@ -228,6 +311,19 @@ jobs:
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
+
+      - name: Download all prebuilt binary artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: prebuilds-artifacts
+          merge-multiple: true
+
+      - name: Merge prebuilds into package
+        run: |
+          mkdir -p prebuilds
+          cp -r prebuilds-artifacts/*/ prebuilds/ 2>/dev/null || true
+          cp -r prebuilds-artifacts/ prebuilds/ 2>/dev/null || true
+          find prebuilds -name '*.node' -type f
 
       - name: Publish to npm
         run: npm publish

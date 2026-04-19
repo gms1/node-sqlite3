@@ -954,4 +954,3 @@ import { SqliteDatabase, SqliteStatement, SqliteBackup } from '@homeofthings/sql
 ## More Information
 
 - [SQLite Documentation](https://www.sqlite.org/docs.html)
-- [Node.js SQLite3 Wiki](https://github.com/TryGhost/node-sqlite3/wiki) (upstream project)

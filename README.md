@@ -19,11 +19,11 @@ Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js]
 
  - Straightforward query and parameter binding interface
  - Full Buffer/Blob support
- - Extensive [debugging support](https://github.com/gms1/node-sqlite3/wiki/Debugging)
- - [Query serialization](https://github.com/gms1/node-sqlite3/wiki/Control-Flow) API
- - [Extension support](https://github.com/gms1/node-sqlite3/wiki/API#databaseloadextensionpath-callback), including bundled support for the [json1 extension](https://www.sqlite.org/json1.html)
+ - Extensive debugging support via [verbose mode](docs/API.md#verbose-mode)
+ - [Query serialization](docs/API.md#databaseserialize) API
+ - [Extension support](docs/API.md#databaseloadextension), including bundled support for the [json1 extension](https://www.sqlite.org/json1.html)
  - Big test suite
- - Written in modern C++ and tested for memory leaks
+ - Written in modern C++
  - Bundles SQLite v3.53.0, or you can build using a local SQLite
 
 # Installing
@@ -36,27 +36,24 @@ npm install @homeofthings/sqlite3
 # or
 yarn add @homeofthings/sqlite3
 ```
-* GitHub's `main` branch: `npm install https://github.com/gms1/node-sqlite3/tarball/main`
 
 ### Prebuilt binaries
 
-`@homeofthings/sqlite3` uses [Node-API](https://nodejs.org/api/n-api.html) so prebuilt binaries do not need to be built for specific Node versions. Prebuilt binaries are available for Node-API v3 and v6. Check the [Node-API version matrix](https://nodejs.org/api/n-api.html#node-api-version-matrix) to ensure your Node version supports one of these. Requires Node.js v20.17.0 or later.
+`@homeofthings/sqlite3` uses [Node-API](https://nodejs.org/api/n-api.html) so prebuilt binaries do not need to be built for specific Node versions. Prebuilt binaries are built as NAPI-version-agnostic (`@homeofthings+sqlite3.*.node`) using the `--napi` flag, and work on any Node.js version that supports the NAPI version used at compile time. Requires Node.js v20.17.0 or later.
 
-The module uses [`prebuild-install`](https://github.com/prebuild/prebuild-install) to download the prebuilt binary for your platform, if it exists. These binaries are hosted on GitHub Releases. The following targets are currently provided:
+Prebuilt binaries are bundled inside the npm package using [`prebuildify`](https://github.com/prebuild/prebuildify) and loaded at runtime by [`node-gyp-build`](https://github.com/prebuild/node-gyp-build). No separate download step is needed — `npm install` just works. The following targets are currently provided:
 
 * `darwin-arm64`
 * `darwin-x64`
-* `linux-arm64`
-* `linux-x64`
-* `linuxmusl-arm64`
-* `linuxmusl-x64`
+* `linux-arm64` (glibc)
+* `linux-x64` (glibc)
+* `linux-arm64` (musl)
+* `linux-x64` (musl)
 * `win32-x64`
-
-Unfortunately, [prebuild](https://github.com/prebuild/prebuild/issues/174) cannot differentiate between `armv6` and `armv7`, and instead uses `arm` as the `{arch}`. Until that is fixed, you will still need to install `sqlite3` from [source](#source-install).
 
 Support for other platforms and architectures may be added in the future if CI supports building on them.
 
-If your environment isn't supported, it'll use `node-gyp` to build SQLite, but you will need to install a C++ compiler and linker.
+If your platform isn't supported, `node-gyp-build` automatically falls back to building from source using `node-gyp`. 
 
 ### Other ways to install
 
@@ -136,10 +133,11 @@ db.close();
 
 ## Source install
 
-To skip searching for pre-compiled binaries, and force a build from source, use
+To build from source, use
 
 ```bash
-npm install --build-from-source --sqlite=/usr/local
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --sqlite=/usr/local
 ```
 
 If building against an external sqlite3 make sure to have the development headers available. Mac OS X ships with these by default. If you don't have them installed, install the `-dev` package with your package manager, e.g. `apt-get install libsqlite3-dev` for Debian/Ubuntu. Make sure that you have at least `libsqlite3` >= 3.6.
@@ -147,7 +145,8 @@ If building against an external sqlite3 make sure to have the development header
 Note, if building against homebrew-installed sqlite on OS X you can do:
 
 ```bash
-npm install --build-from-source --sqlite=/usr/local/opt/sqlite/
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --sqlite=/usr/local/opt/sqlite/
 ```
 
 ## Custom file header (magic)
@@ -155,7 +154,8 @@ npm install --build-from-source --sqlite=/usr/local/opt/sqlite/
 The default sqlite file header is "SQLite format 3". You can specify a different magic, though this will make standard tools and libraries unable to work with your files.
 
 ```bash
-npm install --build-from-source --sqlite_magic="MyCustomMagic15"
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --sqlite_magic="MyCustomMagic15"
 ```
 
 Note that the magic *must* be exactly 15 characters long (16 bytes including null terminator).
@@ -172,13 +172,15 @@ To build `sqlite3` for node-webkit:
 
 ```bash
 NODE_WEBKIT_VERSION="0.8.6" # see latest version at https://github.com/rogerwang/node-webkit#downloads
-npm install @homeofthings/sqlite3 --build-from-source --runtime=node-webkit --target_arch=ia32 --target=$(NODE_WEBKIT_VERSION)
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --runtime=node-webkit --target_arch=ia32 --target=$(NODE_WEBKIT_VERSION)
 ```
 
 You can also run this command from within a `@homeofthings/sqlite3` checkout:
 
 ```bash
-npm install --build-from-source --runtime=node-webkit --target_arch=ia32 --target=$(NODE_WEBKIT_VERSION)
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --runtime=node-webkit --target_arch=ia32 --target=$(NODE_WEBKIT_VERSION)
 ```
 
 Remember the following:
@@ -197,7 +199,8 @@ For instructions on building SQLCipher, see [Building SQLCipher for Node.js](htt
 To run against SQLCipher, you need to compile `sqlite3` from source by passing build options like:
 
 ```bash
-npm install @homeofthings/sqlite3 --build-from-source --sqlite_libname=sqlcipher --sqlite=/usr/
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --sqlite_libname=sqlcipher --sqlite=/usr/
 
 node -e 'require("@homeofthings/sqlite3")'
 ```
@@ -211,7 +214,8 @@ Set the location where `brew` installed it:
 ```bash
 export LDFLAGS="-L`brew --prefix`/opt/sqlcipher/lib"
 export CPPFLAGS="-I`brew --prefix`/opt/sqlcipher/include/sqlcipher"
-npm install @homeofthings/sqlite3 --build-from-source --sqlite_libname=sqlcipher --sqlite=`brew --prefix`
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --sqlite_libname=sqlcipher --sqlite=`brew --prefix`
 
 node -e 'require("@homeofthings/sqlite3")'
 ```
@@ -224,23 +228,26 @@ Set the location where `make` installed it:
 export LDFLAGS="-L/usr/local/lib"
 export CPPFLAGS="-I/usr/local/include -I/usr/local/include/sqlcipher"
 export CXXFLAGS="$CPPFLAGS"
-npm install @homeofthings/sqlite3 --build-from-source --sqlite_libname=sqlcipher --sqlite=/usr/local --verbose
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --sqlite_libname=sqlcipher --sqlite=/usr/local --verbose
 
 node -e 'require("@homeofthings/sqlite3")'
 ```
 
 ### Custom builds and Electron
 
-Running `sqlite3` through [electron-rebuild](https://github.com/electron/electron-rebuild) does not preserve the SQLCipher extension, so some additional flags are needed to make this build Electron compatible. Your `npm install @homeofthings/sqlite3 --build-from-source` command needs these additional flags (be sure to replace the target version with the current Electron version you are working with):
+Running `sqlite3` through [electron-rebuild](https://github.com/electron/electron-rebuild) does not preserve the SQLCipher extension, so some additional flags are needed to make this build Electron compatible. So your command needs these additional flags (be sure to replace the target version with the current Electron version you are working with):
 
 ```bash
-npm install @homeofthings/sqlite3 --build-from-source --runtime=electron --target=18.2.1 --dist-url=https://electronjs.org/headers
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --runtime=electron --target=18.2.1 --dist-url=https://electronjs.org/headers
 ```
 
 In the case of MacOS with Homebrew, the command should look like the following:
 
 ```bash
-npm install @homeofthings/sqlite3 --build-from-source --sqlite_libname=sqlcipher --sqlite=`brew --prefix` --runtime=electron --target=18.2.1 --dist-url=https://electronjs.org/headers
+cd node_modules/@homeofthings/sqlite3
+npx node-gyp rebuild --sqlite_libname=sqlcipher --sqlite=`brew --prefix` --runtime=electron --target=18.2.1 --dist-url=https://electronjs.org/headers
 ```
 
 # Testing
