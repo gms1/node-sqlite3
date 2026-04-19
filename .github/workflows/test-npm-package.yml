@@ -48,7 +48,7 @@ jobs:
       - name: Install tarball and verify
         shell: bash
         run: |
-          TARBALL=$(ls ./downloads/*.tgz | head -1)
+          TARBALL="$(pwd)/downloads/$(ls downloads/*.tgz | head -1 | xargs basename)"
           echo "Installing tarball: $TARBALL"
           mkdir test-project && cd test-project
           npm init -y
