@@ -1,0 +1,96 @@
+name: Test npm package
+on:
+  workflow_dispatch:
+    inputs:
+      target_run_id:
+        description: 'The Run ID of the upstream CI workflow'
+        required: true
+        type: string
+      node_version:
+        description: 'Node.js version to test with'
+        required: false
+        default: '20'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test-artifact:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: win32-x64
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }}
+    steps:
+      - name: Download artifact from specific run
+        uses: actions/download-artifact@v5
+        with:
+          run-id: ${{ github.event.inputs.target_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: npm-package-tarball
+          path: ./downloads
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ github.event.inputs.node_version || '20' }}
+
+      - name: Install tarball and verify
+        shell: bash
+        run: |
+          TARBALL=$(ls ./downloads/*.tgz | head -1)
+          echo "Installing tarball: $TARBALL"
+          mkdir test-project && cd test-project
+          npm init -y
+          npm install "$TARBALL"
+          echo "--- Installed package contents ---"
+          ls -la node_modules/@homeofthings/sqlite3/ 2>/dev/null || dir node_modules\\@homeofthings\\sqlite3\\ 2>/dev/null || true
+          echo "--- Prebuilds ---"
+          find node_modules/@homeofthings/sqlite3/prebuilds -name "*.node" -type f 2>/dev/null || true
+
+      - name: Smoke test - callback API
+        shell: bash
+        run: |
+          cd test-project
+          node -e "
+            const sqlite3 = require('@homeofthings/sqlite3');
+            console.log('sqlite3 version:', sqlite3.VERSION);
+            const db = new sqlite3.Database(':memory:');
+            db.serialize(() => {
+              db.run('CREATE TABLE test (id INT, name TEXT)');
+              db.run('INSERT INTO test VALUES (1, \"hello\")');
+              db.get('SELECT * FROM test', (err, row) => {
+                if (err) { console.error('Query failed:', err); process.exit(1); }
+                console.log('Callback API result:', JSON.stringify(row));
+                db.close();
+              });
+            });
+          "
+
+      - name: Smoke test - promise API
+        shell: bash
+        run: |
+          cd test-project
+          node -e "
+            const sqlite3 = require('@homeofthings/sqlite3');
+            const { SqliteDatabase } = sqlite3;
+            async function main() {
+              const db = await SqliteDatabase.open(':memory:');
+              await db.run('CREATE TABLE test (id INT, name TEXT)');
+              await db.run('INSERT INTO test VALUES (1, \"hello\")');
+              const row = await db.get('SELECT * FROM test');
+              console.log('Promise API result:', JSON.stringify(row));
+              await db.close();
+            }
+            main().catch(err => { console.error(err); process.exit(1); });
+          "
