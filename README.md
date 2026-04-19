@@ -2,6 +2,10 @@
 
 **Note:** This repository is forked from [TryGhost/node-sqlite3](https://github.com/TryGhost/node-sqlite3) which was marked as deprecated/unmaintained.
 
+**Note:** Fortunately, there is already another well maintained fork: [AppThreat/node-sqlite3](https://github.com/AppThreat/node-sqlite3). Unfortunately, this fork didn't appear in the list of forks of TryGhost/node-sqlite3, which is why I created this fork here.
+
+:no_entry: [DEPRECATED] in favour of [@appthreat/sqlite3](https://www.npmjs.com/package/@appthreat/sqlite3)
+
 ---
 Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js](http://nodejs.org/).
 
@@ -298,8 +302,6 @@ Thanks to [Orlando Vazquez](https://github.com/orlandov),
 [Ryan Dahl](https://github.com/ry) for their SQLite bindings for node, and to mraleph on Freenode's #v8 for answering questions.
 
 This module was originally created by [Mapbox](https://mapbox.com/), then it was taken over by [Ghost](https://ghost.org), but was then deprecated without prior notice, so that the original is no longer maintained. See [TryGhost/node-sqlite3](https://github.com/TryGhost/node-sqlite3)
-
-I still hope that it will eventually be taken over by a larger organization, but in the meantime, I'm trying to maintain this fork here.
 
 # Changelog
 
