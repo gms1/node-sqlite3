@@ -2,6 +2,25 @@
 
 ## Technical Decisions
 
+### 2026-04-21: SQLite Build Pipeline using sqlite-amalgamation-*.zip
+
+**Decision**: Switch from `sqlite-autoconf-*.tar.gz` as an amalgamation (extracted at build time via `tar` npm package) to `sqlite-amalgamation-*.zip` (pre-extracted in `deps/`).
+
+**Rationale**:
+- Removes `tar` npm dependency — smaller install for all consumers
+- Eliminates build-time extraction — simpler `sqlite3.gyp`, no `action_before_build`
+- No `VERSION` file conflict — amalgamation zip doesn't include it
+- Faster builds — no extraction step during `yarn install` or `yarn rebuild`
+- Simpler debugging — source files are directly visible in `deps/`
+- Same pattern — `sqlite_version` variable still drives path references
+
+**Changes**:
+- `deps/sqlite3.gyp` — removed `action_before_build` target, paths now reference `./sqlite-amalgamation-<@(sqlite_version)/`
+- `deps/extract.js` — deleted (no longer needed)
+- `deps/sqlite-autoconf-3530000.tar.gz` — deleted, replaced by `deps/sqlite-amalgamation-3530000/`
+- `package.json` — removed `tar` from dependencies
+- `tools/bin/bump-sqlite.sh` — downloads amalgamation zip, extracts immediately, commits directory
+
 ### 2026-04-21: ESM + CJS Dual Support
 
 **Decision**: Use ESM Wrapper Pattern with native CJS→ESM interop for ESM support, while keeping CJS as the primary module system.

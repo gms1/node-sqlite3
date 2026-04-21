@@ -14,42 +14,42 @@
 
 ```
 node-sqlite3/
-├── lib/                    # JavaScript API layer
-│   ├── sqlite3.js          # Main CJS entry point (thin wrapper)
-│   ├── sqlite3-callback.js # Callback API (Database, Statement, Backup classes)
-│   ├── sqlite3.mjs         # ESM entry point (wraps CJS via native import)
-│   ├── sqlite3-binding.js  # Native binding loader
-│   ├── sqlite3.d.ts        # TypeScript declarations (main module)
-│   ├── trace.js            # Stack trace augmentation for verbose mode
-│   └── promise/            # Promise-based API wrappers
-│       ├── index.js        # Promise CJS exports
-│       ├── index.mjs       # Promise ESM entry point
-│       ├── index.d.ts      # TypeScript declarations (promise subpath)
-│       ├── database.js     # SqliteDatabase class
-│       ├── statement.js    # SqliteStatement class
-│       └── backup.js       # SqliteBackup class
-├── src/                    # C++ native addon
-│   ├── node_sqlite3.cc     # Main addon entry
-│   ├── database.cc/h       # Database class
-│   ├── statement.cc/h      # Statement class
-│   ├── backup.cc/h         # Backup class
-│   ├── async.h             # Async work utilities
-│   ├── macros.h            # Helper macros (ASSERT_STATUS, etc.)
-│   └── threading.h         # Threading utilities
-├── deps/                   # SQLite dependency
-│   ├── sqlite3.gyp         # SQLite build config
-│   ├── common-sqlite.gypi  # Common build config
-│   └── sqlite-autoconf-*.tar.gz  # SQLite source
-├── prebuilds/              # Bundled prebuilt binaries (not in git, included in npm package)
-├── test/                   # Test suite (mocha)
-│   ├── esm.test.mjs        # ESM-specific tests (38 tests)
-│   └── *.test.js           # CJS tests (239 tests)
-├── tools/                  # Development tools
-│   ├── bin/                # Utility scripts
-│   │   └── bump-sqlite.sh  # SQLite version bump automation
-│   ├── benchmark-drivers/  # Driver comparison benchmarks
-│   └── benchmark-internal/ # Internal performance benchmarks
-└── binding.gyp             # node-gyp build configuration
+├── lib/                        # JavaScript API layer
+│   ├── sqlite3.js              # Main CJS entry point (thin wrapper)
+│   ├── sqlite3-callback.js     # Callback API (Database, Statement, Backup classes)
+│   ├── sqlite3.mjs             # ESM entry point (wraps CJS via native import)
+│   ├── sqlite3-binding.js      # Native binding loader
+│   ├── sqlite3.d.ts            # TypeScript declarations (main module)
+│   ├── trace.js                # Stack trace augmentation for verbose mode
+│   └── promise/                # Promise-based API wrappers
+│       ├── index.js            # Promise CJS exports
+│       ├── index.mjs           # Promise ESM entry point
+│       ├── index.d.ts          # TypeScript declarations (promise subpath)
+│       ├── database.js         # SqliteDatabase class
+│       ├── statement.js        # SqliteStatement class
+│       └── backup.js           # SqliteBackup class
+├── src/                        # C++ native addon
+│   ├── node_sqlite3.cc         # Main addon entry
+│   ├── database.cc/h           # Database class
+│   ├── statement.cc/h          # Statement class
+│   ├── backup.cc/h             # Backup class
+│   ├── async.h                 # Async work utilities
+│   ├── macros.h                # Helper macros (ASSERT_STATUS, etc.)
+│   └── threading.h             # Threading utilities
+├── deps/                       # SQLite dependency
+│   ├── sqlite3.gyp             # SQLite build config
+│   ├── common-sqlite.gypi      # Common build config
+│   └── sqlite-amalgamation-*/  # SQLite source (pre-extracted)
+├── prebuilds/                  # Bundled prebuilt binaries (not in git, included in npm package)
+├── test/                       # Test suite (mocha)
+│   ├── esm.test.mjs            # ESM-specific tests (38 tests)
+│   └── *.test.js               # CJS tests (239 tests)
+├── tools/                      # Development tools
+│   ├── bin/                    # Utility scripts
+│   │   └── bump-sqlite.sh      # SQLite version bump automation
+│   ├── benchmark-drivers/      # Driver comparison benchmarks
+│   └── benchmark-internal/     # Internal performance benchmarks
+└── binding.gyp                 # node-gyp build configuration
 ```
 
 ## Key Components

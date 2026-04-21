@@ -2,6 +2,14 @@
 
 ## 2026-04-21:
 
+### SQLite Build Pipeline using sqlite-amalgamation-*.zip
+- Switched from `sqlite-autoconf-*.tar.gz` (extracted at build time) to `sqlite-amalgamation-*.zip` (pre-extracted in `deps/`)
+- Removed `tar` npm dependency from `package.json`
+- Removed `deps/extract.js` (no longer needed)
+- Updated `deps/sqlite3.gyp` — removed `action_before_build` target, paths now reference local sqlite-amalgamation-* dir
+- Updated `tools/bin/bump-sqlite.sh` — downloads amalgamation zip, extracts immediately, commits directory
+- All 277 tests pass, build verified
+
 ### ESM + CJS Dual Support Implementation
 - Implemented ESM wrapper pattern using native CJS→ESM interop in `.mjs` entry points
 - Created `lib/sqlite3.mjs` — ESM entry point for main module (default + named exports)
@@ -24,7 +32,7 @@
 - Created [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) — automated 17-step script for upgrading bundled SQLite
 - Features: auto-detect latest version from sqlite.org, cooldown period check, checksum verification, dry-run mode
 - Bugs fixed during real-world testing:
-  - `git rm` instead of `rm` for old tarball (stages deletion for commit)
+  - `git rm` / `git rm -r` for old amalgamation dir (stages deletion for commit)
   - `${tmp_dir:-}` in EXIT trap to avoid unbound variable error
   - `FROM_VERSION` global variable to preserve original version for commit message (gypi file already updated by step 10)
 

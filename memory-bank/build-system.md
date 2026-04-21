@@ -48,7 +48,7 @@ Common build configurations:
 ### deps/sqlite3.gyp
 
 SQLite library build configuration:
-- Compiles SQLite from source tarball
+- Compiles SQLite from amalgamation source (pre-extracted in deps/)
 - Enables FTS3/4/5, R-Tree, math functions
 - Thread-safe configuration
 
