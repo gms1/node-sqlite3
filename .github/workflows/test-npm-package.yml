@@ -1,5 +1,16 @@
 name: Test npm package
 on:
+  workflow_call:
+    inputs:
+      target_run_id:
+        description: 'The Run ID of the upstream CI workflow'
+        required: true
+        type: string
+      node_version:
+        description: 'Node.js version to test with'
+        required: false
+        default: '20'
+        type: string
   workflow_dispatch:
     inputs:
       target_run_id:
@@ -35,7 +46,7 @@ jobs:
       - name: Download artifact from specific run
         uses: actions/download-artifact@v5
         with:
-          run-id: ${{ github.event.inputs.target_run_id }}
+          run-id: ${{ inputs.target_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           name: npm-package-tarball
           path: ./downloads
@@ -43,7 +54,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ github.event.inputs.node_version || '20' }}
+          node-version: ${{ inputs.node_version || '20' }}
 
       - name: Install tarball and verify
         shell: bash
@@ -94,3 +105,61 @@ jobs:
             }
             main().catch(err => { console.error(err); process.exit(1); });
           "
+
+      - name: Smoke test - ESM default import
+        shell: bash
+        run: |
+          cd test-project
+          cat > test-esm.mjs << 'EOF'
+          import sqlite3 from '@homeofthings/sqlite3';
+          console.log('ESM: sqlite3 version:', sqlite3.VERSION);
+          const db = new sqlite3.Database(':memory:');
+          db.serialize(() => {
+            db.run('CREATE TABLE test (id INT, name TEXT)');
+            db.run("INSERT INTO test VALUES (1, 'hello')");
+            db.get('SELECT * FROM test', (err, row) => {
+              if (err) { console.error('Query failed:', err); process.exit(1); }
+              console.log('ESM default import result:', JSON.stringify(row));
+              db.close();
+            });
+          });
+          EOF
+          node test-esm.mjs
+
+      - name: Smoke test - ESM named imports
+        shell: bash
+        run: |
+          cd test-project
+          cat > test-named.mjs << 'EOF'
+          import { Database, OPEN_READWRITE, OPEN_CREATE } from '@homeofthings/sqlite3';
+          console.log('ESM named: OPEN_READWRITE=', OPEN_READWRITE);
+          const db = new Database(':memory:');
+          db.serialize(() => {
+            db.run('CREATE TABLE test (id INT, name TEXT)');
+            db.run("INSERT INTO test VALUES (2, 'world')");
+            db.get('SELECT * FROM test', (err, row) => {
+              if (err) { console.error('Query failed:', err); process.exit(1); }
+              console.log('ESM named import result:', JSON.stringify(row));
+              db.close();
+            });
+          });
+          EOF
+          node test-named.mjs
+
+      - name: Smoke test - ESM promise API
+        shell: bash
+        run: |
+          cd test-project
+          cat > test-promise.mjs << 'EOF'
+          import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
+          async function main() {
+            const db = await SqliteDatabase.open(':memory:');
+            await db.run('CREATE TABLE test (id INT, name TEXT)');
+            await db.run("INSERT INTO test VALUES (3, 'esm')");
+            const row = await db.get('SELECT * FROM test');
+            console.log('ESM promise API result:', JSON.stringify(row));
+            await db.close();
+          }
+          main().catch(err => { console.error(err); process.exit(1); });
+          EOF
+          node test-promise.mjs

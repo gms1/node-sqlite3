@@ -220,6 +220,11 @@ export interface sqlite3 {
     verbose(): this;
 }
 
+// Default export for ESM consumers
+// CJS: const sqlite3 = require('@homeofthings/sqlite3')
+// ESM: import sqlite3 from '@homeofthings/sqlite3'
+export default sqlite3;
+
 // Promise-based wrapper classes
 
 /**

@@ -9,9 +9,11 @@
 
 ## Plans
 
-- Never refer to a plan (files in `plans/`) from any memory bank file except `activeContext.md`
-- Plans are temporary: once implemented, they are moved from active context to `progress.md`, and the plan file may be deleted
-- References to plans in `progress.md`, `decisionLog.md`, `development.md`, or `project-overview.md` would become stale/broken
+Never refer to a plan (files in `plans/`) from any memory bank file except `activeContext.md`
+
+Plans are temporary: once implemented, the related active context is moved to `progress.md`. 
+
+The client may then review all the changes and remove the plan file, so all references to plans in `progress.md`, `decisionLog.md`, `development.md`, or `project-overview.md` would become stale/broken
 
 ## Notes
 

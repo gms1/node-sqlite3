@@ -295,6 +295,14 @@ jobs:
           path: '*.tgz'
           retention-days: 7
 
+  test-package:
+    needs: [package]
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request') || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+    uses: ./.github/workflows/test-npm-package.yml
+    with:
+      target_run_id: ${{ github.run_id }}
+      node_version: '22'
+
   publish-npm:
     needs: [build, build-musl]
     if: startsWith(github.ref, 'refs/tags/')
