@@ -26,6 +26,7 @@ Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js]
  - Written in modern C++
  - Is built using hardening flags
  - Promise-based API
+ - supports ESM and CJS
  - Bundles SQLite v3.53.0, or you can build using a local SQLite
 
 # Installing
@@ -107,6 +108,37 @@ async function main() {
 
 main().catch(console.error);
 ```
+
+## ESM and CJS Support
+
+This package supports both CommonJS (CJS) and ECMAScript Modules (ESM):
+
+### CJS (CommonJS)
+
+```js
+// Default import
+const sqlite3 = require('@homeofthings/sqlite3');
+
+// Destructured import
+const { Database, SqliteDatabase } = require('@homeofthings/sqlite3');
+
+// Promise subpath import
+const { SqliteDatabase } = require('@homeofthings/sqlite3/promise');
+```
+
+### ESM (ECMAScript Modules)
+
+```js
+// Default import
+import sqlite3 from '@homeofthings/sqlite3';
+
+// Named imports
+import { Database, OPEN_CREATE, SqliteDatabase } from '@homeofthings/sqlite3';
+
+// Promise subpath import
+import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
+```
+
 
 # Usage
 

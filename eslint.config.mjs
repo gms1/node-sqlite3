@@ -6,7 +6,7 @@ export default [
         ignores: ['node_modules/', 'build/', 'prebuilds/', 'deps/'],
     },
     {
-        files: ['**/*.js'],
+        files: ['**/*.js', '**/*.mjs'],
         languageOptions: {
             ecmaVersion: 2020,
             sourceType: 'module',
@@ -24,7 +24,7 @@ export default [
         },
     },
     {
-        files: ['test/**/*.js'],
+        files: ['test/**/*.js', 'test/**/*.mjs'],
         languageOptions: {
             globals: {
                 ...globals.mocha,

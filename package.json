@@ -30,6 +30,7 @@
     "binding.gyp",
     "deps/",
     "lib/**/*.js",
+    "lib/**/*.mjs",
     "lib/**/*.d.ts",
     "prebuilds/**",
     "src/"
@@ -72,7 +73,7 @@
     "rebuild": "node-gyp rebuild",
     "frozen-install": "yarn install --frozen-lockfile",
     "lint": "eslint lib/ test/ tools/",
-    "test": "node test/support/createdb.js && nyc mocha -R spec --timeout 480000"
+    "test": "node test/support/createdb.js && nyc mocha -R spec --timeout 480000 \"test/*.test.js\" \"test/*.test.mjs\""
   },
   "license": "BSD-3-Clause",
   "publishConfig": {
@@ -84,6 +85,21 @@
     "sqlite3",
     "database"
   ],
-  "main": "./lib/sqlite3",
-  "types": "./lib/sqlite3.d.ts"
+  "main": "./lib/sqlite3.js",
+  "module": "./lib/sqlite3.mjs",
+  "types": "./lib/sqlite3.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/sqlite3.d.ts",
+      "import": "./lib/sqlite3.mjs",
+      "require": "./lib/sqlite3.js",
+      "default": "./lib/sqlite3.js"
+    },
+    "./promise": {
+      "types": "./lib/promise/index.d.ts",
+      "import": "./lib/promise/index.mjs",
+      "require": "./lib/promise/index.js",
+      "default": "./lib/promise/index.js"
+    }
+  }
 }

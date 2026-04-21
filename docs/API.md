@@ -6,6 +6,7 @@ This document describes the API for `@homeofthings/sqlite3`, a Node.js binding f
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Module Systems (CJS & ESM)](#module-systems-cjs--esm)
 - [Callback API](#callback-api)
   - [Database Class](#database-class-callback)
   - [Statement Class](#statement-class-callback)
@@ -64,6 +65,40 @@ async function main() {
 
 main().catch(console.error);
 ```
+
+---
+
+## Module Systems (CJS & ESM)
+
+This package supports both CommonJS (CJS) and ECMAScript Modules (ESM) via conditional exports in `package.json`.
+
+### CJS (CommonJS) — Traditional
+
+```javascript
+// Default import
+const sqlite3 = require('@homeofthings/sqlite3');
+
+// Destructured import
+const { Database, SqliteDatabase, OPEN_CREATE } = require('@homeofthings/sqlite3');
+
+// Promise subpath import
+const { SqliteDatabase } = require('@homeofthings/sqlite3/promise');
+```
+
+### ESM (ECMAScript Modules) — Modern
+
+```javascript
+// Default import
+import sqlite3 from '@homeofthings/sqlite3';
+
+// Named imports
+import { Database, OPEN_CREATE, SqliteDatabase } from '@homeofthings/sqlite3';
+
+// Promise subpath import
+import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
+```
+
+> **Note:** The ESM wrappers use native CJS→ESM interop (`import` from `.js` files), so ESM imports work seamlessly alongside CJS requires. Both module systems share the same underlying native addon instance.
 
 ---
 
@@ -942,11 +977,20 @@ const sqlite3 = require('@homeofthings/sqlite3').verbose();
 
 ## TypeScript Support
 
-TypeScript definitions are included in the package:
+TypeScript definitions are included in the package. Both CJS and ESM import styles are supported:
 
 ```typescript
+// CJS style
+const sqlite3 = require('@homeofthings/sqlite3');
+const { Database, SqliteDatabase } = require('@homeofthings/sqlite3');
+
+// ESM style
+import sqlite3 from '@homeofthings/sqlite3';
 import { Database, Statement, Backup } from '@homeofthings/sqlite3';
 import { SqliteDatabase, SqliteStatement, SqliteBackup } from '@homeofthings/sqlite3';
+
+// Promise subpath
+import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
 ```
 
 ---

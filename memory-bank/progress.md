@@ -1,5 +1,23 @@
 # Progress Log
 
+## 2026-04-21:
+
+### ESM + CJS Dual Support Implementation
+- Implemented ESM wrapper pattern using native CJS→ESM interop in `.mjs` entry points
+- Created `lib/sqlite3.mjs` — ESM entry point for main module (default + named exports)
+- Created `lib/promise/index.mjs` — ESM entry point for promise subpath
+- Created `lib/promise/index.d.ts` — TypeScript declarations for promise subpath
+- Created `lib/sqlite3-callback.js` — Extracted callback API from sqlite3.js to break circular dependency
+- Modified `lib/sqlite3.js` — Now a thin wrapper that re-exports callback API and adds promise classes
+- Modified `lib/promise/database.js` — Changed to require `sqlite3-callback.js` instead of `sqlite3.js`
+- Modified `lib/sqlite3.d.ts` — Added `export default sqlite3;`
+- Modified `package.json` — Added conditional `exports` map, updated `files` and `test` script
+- Modified `eslint.config.mjs` — Added `.mjs` file patterns
+- Created `test/esm.test.mjs` — 38 ESM-specific tests
+- Updated `.github/workflows/test-npm-package.yml` — Added `workflow_call` trigger, ESM smoke tests
+- Updated `.github/workflows/ci.yml` — Added `test-package` job calling reusable workflow
+- Updated `README.md` and `docs/API.md` — ESM usage documentation
+
 ## 2026-04-17:
 
 ### SQLite Version Bump Script

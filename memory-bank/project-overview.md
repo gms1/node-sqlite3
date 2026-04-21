@@ -15,12 +15,16 @@
 ```
 node-sqlite3/
 ├── lib/                    # JavaScript API layer
-│   ├── sqlite3.js          # Main module entry point
+│   ├── sqlite3.js          # Main CJS entry point (thin wrapper)
+│   ├── sqlite3-callback.js # Callback API (Database, Statement, Backup classes)
+│   ├── sqlite3.mjs         # ESM entry point (wraps CJS via native import)
 │   ├── sqlite3-binding.js  # Native binding loader
-│   ├── sqlite3.d.ts        # TypeScript declarations
+│   ├── sqlite3.d.ts        # TypeScript declarations (main module)
 │   ├── trace.js            # Stack trace augmentation for verbose mode
 │   └── promise/            # Promise-based API wrappers
-│       ├── index.js        # Promise module exports
+│       ├── index.js        # Promise CJS exports
+│       ├── index.mjs       # Promise ESM entry point
+│       ├── index.d.ts      # TypeScript declarations (promise subpath)
 │       ├── database.js     # SqliteDatabase class
 │       ├── statement.js    # SqliteStatement class
 │       └── backup.js       # SqliteBackup class
@@ -38,6 +42,8 @@ node-sqlite3/
 │   └── sqlite-autoconf-*.tar.gz  # SQLite source
 ├── prebuilds/              # Bundled prebuilt binaries (not in git, included in npm package)
 ├── test/                   # Test suite (mocha)
+│   ├── esm.test.mjs        # ESM-specific tests (38 tests)
+│   └── *.test.js           # CJS tests (239 tests)
 ├── tools/                  # Development tools
 │   ├── bin/                # Utility scripts
 │   │   └── bump-sqlite.sh  # SQLite version bump automation
@@ -50,12 +56,19 @@ node-sqlite3/
 
 ### JavaScript Layer (lib/)
 
-- **sqlite3.js**: Main module that wraps the native addon with a friendlier API
+- **sqlite3-callback.js**: Callback API (Database, Statement, Backup classes, cached Database, verbose mode)
   - `Database` class with methods: `prepare`, `run`, `get`, `all`, `each`, `map`, `exec`, `close`
   - `Statement` class with methods: `bind`, `get`, `run`, `all`, `each`, `map`, `reset`, `finalize`
   - `Backup` class for database backup operations
   - Cached database support via `sqlite3.cached.Database`
   - Event emitter integration for `trace`, `profile`, `change` events
+
+- **sqlite3.js**: Thin CJS wrapper that re-exports callback API and adds promise classes
+  - Imports `sqlite3-callback.js` and attaches `SqliteDatabase`, `SqliteStatement`, `SqliteBackup`
+
+- **sqlite3.mjs**: ESM entry point using native CJS→ESM interop
+  - Imports CJS module directly and re-exports as default + named exports
+  - Enables `import sqlite3 from '@homeofthings/sqlite3'` syntax
 
 - **sqlite3-binding.js**: Loads the native addon using `node-gyp-build`
   - Passes project root (`path.join(__dirname, "..")`) since `node-gyp-build` looks for `prebuilds/` and `build/` relative to the passed directory
@@ -71,6 +84,27 @@ node-sqlite3/
   - `SqliteBackup` class: `step()`, `finish()`
   - Transaction support: `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
   - Static factory: `SqliteDatabase.open(filename, mode)`
+  - `database.js` requires `sqlite3-callback.js` (not `sqlite3.js`) to avoid circular dependency
+
+### Module System (CJS & ESM)
+
+The package supports both CommonJS and ECMAScript Modules:
+
+**CJS (CommonJS)**:
+```javascript
+const sqlite3 = require('@homeofthings/sqlite3');
+const { SqliteDatabase } = require('@homeofthings/sqlite3/promise');
+```
+
+**ESM (ECMAScript Modules)**:
+```javascript
+import sqlite3 from '@homeofthings/sqlite3';
+import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
+```
+
+**Conditional exports** in `package.json` route to the appropriate entry point:
+- `.` → `sqlite3.mjs` (ESM), `sqlite3.js` (CJS), `sqlite3.d.ts` (types)
+- `./promise` → `promise/index.mjs` (ESM), `promise/index.js` (CJS), `promise/index.d.ts` (types)
 
 ### Native Layer (src/)
 
@@ -165,8 +199,14 @@ yarn rebuild
 # Build with debug configuration
 node-gyp rebuild --debug
 
-# Run tests
+# Run tests (CJS + ESM)
 yarn test
+
+# Run only CJS tests
+npx mocha -R spec --timeout 480000
+
+# Run only ESM tests
+node --experimental-vm-modules test/esm.test.mjs
 
 # Build prebuilt binaries
 yarn prebuild

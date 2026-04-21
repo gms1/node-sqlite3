@@ -33,7 +33,8 @@ yarn test
 
 This runs:
 1. `node test/support/createdb.js` - Creates test database
-2. `mocha -R spec --timeout 480000` - Runs test suite
+2. `mocha -R spec --timeout 480000` - Runs CJS test suite (239 tests)
+3. `node --experimental-vm-modules test/esm.test.mjs` - Runs ESM test suite (38 tests)
 
 ### Test Structure
 
@@ -51,6 +52,7 @@ test/
 ├── constants.test.js    # Constants tests
 ├── database_fail.test.js # Database failure tests
 ├── each.test.js         # each() method tests
+├── esm.test.mjs         # ESM-specific tests (38 tests)
 ├── exec.test.js         # exec() method tests
 ├── extension.test.js    # Extension loading tests
 ├── fts-content.test.js  # Full-text search tests
@@ -68,6 +70,7 @@ test/
 ├── patching.test.js     # Patching tests
 ├── prepare.test.js      # prepare() method tests
 ├── profile.test.js      # Profile API tests
+├── promise.test.js      # Promise API tests
 ├── rerun.test.js        # Rerun tests
 ├── scheduling.test.js   # Scheduling tests
 ├── serialization.test.js # Serialization tests
@@ -75,14 +78,13 @@ test/
 ├── unicode.test.js      # Unicode handling tests
 ├── update_hook.test.js  # Update hook tests
 ├── upsert.test.js       # UPSERT tests
-├── verbose.test.js      # Verbose mode tests
-└── promise.test.js      # Promise API tests
+└── verbose.test.js      # Verbose mode tests
 ```
 
 ### Running Specific Tests
 
 ```bash
-# Run specific test file
+# Run specific CJS test file
 npx mocha test/verbose.test.js
 
 # Run with specific reporter
@@ -90,6 +92,9 @@ npx mocha -R spec test/each.test.js
 
 # Run with increased timeout
 npx mocha --timeout 10000 test/blob.test.js
+
+# Run ESM tests
+node --experimental-vm-modules test/esm.test.mjs
 ```
 
 ## Debugging
@@ -138,6 +143,36 @@ db.on('profile', (sql, time) => {
   console.log('SQL:', sql, 'Time:', time, 'ms');
 });
 ```
+
+## Module Systems (CJS & ESM)
+
+The package supports both CommonJS and ECMAScript Modules.
+
+### CJS (CommonJS) — Traditional
+
+```javascript
+const sqlite3 = require('@homeofthings/sqlite3');
+const { SqliteDatabase } = require('@homeofthings/sqlite3/promise');
+```
+
+### ESM (ECMAScript Modules) — Modern
+
+```javascript
+import sqlite3 from '@homeofthings/sqlite3';
+import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
+```
+
+ESM support uses the wrapper pattern: `.mjs` files use native CJS→ESM interop to import CJS modules directly, then re-export as ESM. 
+
+### Architecture
+
+- `lib/sqlite3-callback.js` — Callback API (core implementation)
+- `lib/sqlite3.js` — CJS entry point (re-exports callback API + promise classes)
+- `lib/sqlite3.mjs` — ESM entry point (wraps CJS via native import)
+- `lib/promise/index.js` — Promise CJS exports
+- `lib/promise/index.mjs` — Promise ESM entry point
+
+The callback API was extracted into `sqlite3-callback.js` to avoid circular dependencies: `promise/database.js` requires `sqlite3-callback.js` (not `sqlite3.js`), breaking the cycle.
 
 ## Promise API
 
@@ -188,7 +223,7 @@ See [`lib/promise/`](../lib/promise/) for implementation details.
 yarn lint
 ```
 
-Uses ESLint with configuration in `.eslintrc.js`.
+Uses ESLint with configuration in `eslint.config.mjs`. Lints both `.js` and `.mjs` files.
 
 ### Code Style Guidelines
 
@@ -312,7 +347,7 @@ yarn test
 
 ### Adding New Tests
 
-1. Create `test/your-feature.test.js`
+1. Create `test/your-feature.test.js` (CJS) or `test/your-feature.test.mjs` (ESM)
 2. Follow existing test patterns
 3. Import helper from `./support/helper.js`
 4. Run: `yarn test`

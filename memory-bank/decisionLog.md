@@ -2,6 +2,59 @@
 
 ## Technical Decisions
 
+### 2026-04-21: ESM + CJS Dual Support
+
+**Decision**: Use ESM Wrapper Pattern with native CJS→ESM interop for ESM support, while keeping CJS as the primary module system.
+
+**Rationale**:
+- ESM wrappers (`.mjs` files) use direct `import` statements to load CJS modules
+- This approach maintains full CJS backward compatibility while providing ESM support
+- Conditional `exports` map in `package.json` routes ESM/TypeScript/CJS consumers correctly
+
+**Circular Dependency Fix**:
+- Original structure: `sqlite3.js` → `promise/` → `sqlite3.js` (circular)
+- When loading promise subpath first via ESM, Node.js warned about accessing non-existent properties
+- Solution: Extract callback API into `sqlite3-callback.js`, make `sqlite3.js` a thin wrapper
+- `promise/database.js` now requires `sqlite3-callback.js` instead of `sqlite3.js`
+- This eliminates the circular dependency entirely
+
+**Key Files**:
+- `lib/sqlite3.mjs` — ESM entry point (default + named exports)
+- `lib/promise/index.mjs` — ESM entry point for promise subpath
+- `lib/sqlite3-callback.js` — Callback API (extracted from sqlite3.js)
+- `lib/promise/index.d.ts` — TypeScript declarations for promise subpath
+- `test/esm.test.mjs` — 38 ESM-specific tests
+
+**package.json `exports` map**:
+```json
+{
+  ".": {
+    "types": "./lib/sqlite3.d.ts",
+    "import": "./lib/sqlite3.mjs",
+    "require": "./lib/sqlite3.js",
+    "default": "./lib/sqlite3.js"
+  },
+  "./promise": {
+    "types": "./lib/promise/index.d.ts",
+    "import": "./lib/promise/index.mjs",
+    "require": "./lib/promise/index.js",
+    "default": "./lib/promise/index.js"
+  }
+}
+```
+
+**CI/CD**:
+- `test-npm-package.yml` now has `workflow_call` trigger for reuse from CI
+- Added ESM smoke tests to `test-npm-package.yml`
+- `ci.yml` calls `test-npm-package` as a reusable workflow
+
+**Alternatives Considered**:
+1. Pure ESM with top-level await — Rejected (native addons require `require()`)
+2. Dual CJS/ESM package — Rejected (dual package hazard, complexity)
+3. Lazy property getters in sqlite3.js — Rejected (still had circular dependency warning)
+
+---
+
 ### 2026-04-18: Prebuild Migration (prebuild/prebuild-install → prebuildify/node-gyp-build)
 
 **Decision**: Replace deprecated `prebuild` and `prebuild-install` with `prebuildify` and `node-gyp-build`
