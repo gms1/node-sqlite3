@@ -17,6 +17,7 @@ Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js]
 
 # Features
 
+ - Bundles SQLite v3.53.0, or you can build using a local SQLite (or SqlCipher,...)
  - Straightforward query and parameter binding interface
  - Full Buffer/Blob support
  - Extensive debugging support via [verbose mode](docs/API.md#verbose-mode)
@@ -27,7 +28,6 @@ Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js]
  - Is built using hardening flags
  - Promise-based API
  - supports ESM and CJS
- - Bundles SQLite v3.53.0, or you can build using a local SQLite
 
 # Installing
 

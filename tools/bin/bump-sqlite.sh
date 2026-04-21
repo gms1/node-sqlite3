@@ -121,7 +121,7 @@ read_current_version() {
 }
 
 # Detect the latest available SQLite version from sqlite.org
-# Parses the download page for the autoconf tarball filename
+# Parses the download page for the amalgamation zip filename
 detect_latest_version() {
     log "Fetching SQLite download page to detect latest version..." >&2
     local download_html
@@ -133,11 +133,11 @@ detect_latest_version() {
     fi
 
     # The download page contains lines like:
-    #   .../2025/sqlite-autoconf-3510400.tar.gz
-    # Extract the highest version number from autoconf tarball references
+    #   .../2025/sqlite-amalgamation-3510400.zip
+    # Extract the highest version number from amalgamation zip references
     local latest_version
     latest_version="$(echo "$download_html" | \
-        grep -oP 'sqlite-autoconf-\K3\d{6}' | \
+        grep -oP 'sqlite-amalgamation-\K3\d{6}' | \
         sort -n | \
         tail -1 || true)"
 
@@ -417,20 +417,22 @@ step8_create_branch() {
 }
 
 step9_download_and_replace() {
-    log_step "9" "Download new SQLite tarball and remove old one"
+    log_step "9" "Download new SQLite amalgamation zip and extract to deps/"
 
-    local old_tarball="sqlite-autoconf-${FROM_VERSION}.tar.gz"
-    local new_tarball="sqlite-autoconf-${NEW_VERSION}.tar.gz"
+    local old_dir="sqlite-amalgamation-${FROM_VERSION}"
+    local new_dir="sqlite-amalgamation-${NEW_VERSION}"
+    local new_zip="sqlite-amalgamation-${NEW_VERSION}.zip"
 
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would download ${new_tarball} from sqlite.org"
-        log_dry "Would git rm ${old_tarball} from deps/"
-        log_dry "Would place ${new_tarball} in deps/"
+        log_dry "Would download ${new_zip} from sqlite.org"
+        log_dry "Would extract ${new_zip} to deps/${new_dir}/"
+        log_dry "Would git rm deps/${old_dir}/ from deps/"
+        log_dry "Would place deps/${new_dir}/ in deps/"
         return
     fi
 
     # Fetch the download page to find the URL
-    log "Fetching SQLite download page to find tarball URL..."
+    log "Fetching SQLite download page to find amalgamation zip URL..."
     local download_html
     download_html="$(curl -sL "$SQLITE_DOWNLOAD_URL" 2>/dev/null || true)"
 
@@ -439,23 +441,23 @@ step9_download_and_replace() {
         exit "$EXIT_DOWNLOAD_FAIL"
     fi
 
-    # Extract the download URL for the autoconf tarball
+    # Extract the download URL for the amalgamation zip
     # The download page has lines like:
-    #   .../2025/sqlite-autoconf-3510400.tar.gz
+    #   .../2025/sqlite-amalgamation-3510400.zip
     local download_url
     download_url="$(echo "$download_html" | \
-        grep -oP 'https://sqlite\.org/\d{4}/sqlite-autoconf-'"${NEW_VERSION}"'\.tar\.gz' | \
+        grep -oP 'https://sqlite\.org/\d{4}/sqlite-amalgamation-'"${NEW_VERSION}"'\.zip' | \
         head -1 || true)"
 
     # Fallback: try relative URL pattern
     if [[ -z "$download_url" ]]; then
         local year
         year="$(echo "$download_html" | \
-            grep -oP '\d{4}(?=/sqlite-autoconf-'"${NEW_VERSION}"')' | \
+            grep -oP '\d{4}(?=/sqlite-amalgamation-'"${NEW_VERSION}"')' | \
             head -1 || true)"
 
         if [[ -n "$year" ]]; then
-            download_url="https://sqlite.org/${year}/sqlite-autoconf-${NEW_VERSION}.tar.gz"
+            download_url="https://sqlite.org/${year}/sqlite-amalgamation-${NEW_VERSION}.zip"
         fi
     fi
 
@@ -466,7 +468,7 @@ step9_download_and_replace() {
         last_year="$((this_year - 1))"
 
         for y in "$this_year" "$last_year"; do
-            local test_url="https://sqlite.org/${y}/sqlite-autoconf-${NEW_VERSION}.tar.gz"
+            local test_url="https://sqlite.org/${y}/sqlite-amalgamation-${NEW_VERSION}.zip"
             log "Trying: ${test_url}"
             if curl -sfI "$test_url" >/dev/null 2>&1; then
                 download_url="$test_url"
@@ -476,7 +478,7 @@ step9_download_and_replace() {
     fi
 
     if [[ -z "$download_url" ]]; then
-        echo "ERROR: Could not find download URL for ${new_tarball}" >&2
+        echo "ERROR: Could not find download URL for ${new_zip}" >&2
         echo "       Check https://sqlite.org/download.html manually" >&2
         exit "$EXIT_DOWNLOAD_FAIL"
     fi
@@ -488,18 +490,18 @@ step9_download_and_replace() {
     tmp_dir="$(mktemp -d)"
     trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' EXIT
 
-    log "Downloading ${new_tarball}..."
-    if ! curl -fSL -o "${tmp_dir}/${new_tarball}" "$download_url"; then
+    log "Downloading ${new_zip}..."
+    if ! curl -fSL -o "${tmp_dir}/${new_zip}" "$download_url"; then
         echo "ERROR: Download failed for ${download_url}" >&2
         exit "$EXIT_DOWNLOAD_FAIL"
     fi
 
-    log "Download complete: $(du -h "${tmp_dir}/${new_tarball}" | cut -f1)"
+    log "Download complete: $(du -h "${tmp_dir}/${new_zip}" | cut -f1)"
 
     # Checksum verification (best-effort)
     local expected_hash
     expected_hash="$(echo "$download_html" | \
-        grep -B1 "sqlite-auto-conf-${NEW_VERSION}\.tar\.gz\|sqlite-autoconf-${NEW_VERSION}\.tar\.gz" | \
+        grep -B1 "sqlite-amalgamation-${NEW_VERSION}\.zip" | \
         grep -oE '[a-f0-9]{64}' | \
         head -1 || true)"
 
@@ -509,9 +511,9 @@ step9_download_and_replace() {
         # Try sha3sum first, then openssl
         local actual_hash=""
         if command -v sha3sum &>/dev/null; then
-            actual_hash="$(sha3sum -a 256 "${tmp_dir}/${new_tarball}" 2>/dev/null | awk '{print $1}' || true)"
+            actual_hash="$(sha3sum -a 256 "${tmp_dir}/${new_zip}" 2>/dev/null | awk '{print $1}' || true)"
         elif command -v keccak-256sum &>/dev/null; then
-            actual_hash="$(keccak-256sum "${tmp_dir}/${new_tarball}" 2>/dev/null | awk '{print $1}' || true)"
+            actual_hash="$(keccak-256sum "${tmp_dir}/${new_zip}" 2>/dev/null | awk '{print $1}' || true)"
         fi
 
         if [[ -n "$actual_hash" ]]; then
@@ -532,17 +534,22 @@ step9_download_and_replace() {
         log "         Skipping checksum verification."
     fi
 
-    # Remove old tarball
-    if [[ -f "${DEPS_DIR}/${old_tarball}" ]]; then
-        log "Removing old tarball: ${old_tarball}"
-        git rm "${DEPS_DIR}/${old_tarball}"
-    else
-        log "WARNING: Old tarball not found: ${DEPS_DIR}/${old_tarball}"
+    # Extract the zip
+    log "Extracting ${new_zip}..."
+    if ! unzip -o "${tmp_dir}/${new_zip}" -d "${DEPS_DIR}/"; then
+        echo "ERROR: Failed to extract ${new_zip}" >&2
+        exit "$EXIT_GENERAL_ERROR"
     fi
 
-    # Place new tarball
-    log "Placing new tarball: ${new_tarball}"
-    mv "${tmp_dir}/${new_tarball}" "${DEPS_DIR}/${new_tarball}"
+    # Remove old amalgamation directory
+    if [[ -d "${DEPS_DIR}/${old_dir}" ]]; then
+        log "Removing old amalgamation directory: ${old_dir}"
+        git rm -r "${DEPS_DIR}/${old_dir}"
+    else
+        log "WARNING: Old amalgamation directory not found: ${DEPS_DIR}/${old_dir}"
+    fi
+
+    log "Amalgamation extracted to deps/${new_dir}/"
 }
 
 step10_update_gypi() {
@@ -636,8 +643,8 @@ step12_check_other_changes() {
 
     echo ""
     echo "Please review the changelog for potential manual changes in the following files:"
-    echo "  - deps/extract.js  (extraction workarounds, e.g., VERSION file removal)"
     echo "  - deps/sqlite3.gyp (compile flags, defines, new extensions)"
+    echo "  - deps/sqlite-amalgamation-*/ (amalgamation source files)"
     echo ""
 
     if [[ "$DRY_RUN" == true ]]; then
@@ -718,7 +725,7 @@ step16_commit() {
 
     # Stage relevant files
     git add "${GYPI_FILE}"
-    git add "${DEPS_DIR}/sqlite-autoconf-"*.tar.gz
+    git add "${DEPS_DIR}/sqlite-amalgamation-"*/
     git add "$README_FILE"
 
     git commit -m "$commit_msg"

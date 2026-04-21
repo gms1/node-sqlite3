@@ -48,39 +48,14 @@
 
   'targets': [
     {
-      'target_name': 'action_before_build',
-      'type': 'none',
-      'hard_dependency': 1,
-      'actions': [
-        {
-          'action_name': 'unpack_sqlite_dep',
-          'inputs': [
-            './sqlite-autoconf-<@(sqlite_version).tar.gz'
-          ],
-          'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/sqlite-autoconf-<@(sqlite_version)/sqlite3.c'
-          ],
-          'action': ['node','./extract.js','./sqlite-autoconf-<@(sqlite_version).tar.gz','<(SHARED_INTERMEDIATE_DIR)']
-        }
-      ],
-      'direct_dependent_settings': {
-        'include_dirs': [
-          '<(SHARED_INTERMEDIATE_DIR)/sqlite-autoconf-<@(sqlite_version)/',
-        ]
-      },
-    },
-    {
       'target_name': 'sqlite3',
       'type': 'static_library',
-      'include_dirs': [ '<(SHARED_INTERMEDIATE_DIR)/sqlite-autoconf-<@(sqlite_version)/' ],
-      'dependencies': [
-        'action_before_build'
-      ],
+      'include_dirs': [ './sqlite-amalgamation-<@(sqlite_version)/' ],
       'sources': [
-        '<(SHARED_INTERMEDIATE_DIR)/sqlite-autoconf-<@(sqlite_version)/sqlite3.c'
+        './sqlite-amalgamation-<@(sqlite_version)/sqlite3.c'
       ],
       'direct_dependent_settings': {
-        'include_dirs': [ '<(SHARED_INTERMEDIATE_DIR)/sqlite-autoconf-<@(sqlite_version)/' ],
+        'include_dirs': [ './sqlite-amalgamation-<@(sqlite_version)/' ],
         'defines': [
           'SQLITE_THREADSAFE=1',
           'HAVE_USLEEP=1',
@@ -105,9 +80,6 @@
         'SQLITE_ENABLE_RTREE',
         'SQLITE_ENABLE_DBSTAT_VTAB=1',
         'SQLITE_ENABLE_MATH_FUNCTIONS'
-      ],
-      'export_dependent_settings': [
-        'action_before_build',
       ],
       'conditions': [
         ["sqlite_magic != ''", {

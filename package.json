@@ -41,8 +41,7 @@
   },
   "dependencies": {
     "node-addon-api": "^8.7.0",
-    "node-gyp-build": "^4.8.4",
-    "tar": "^7.5.13"
+    "node-gyp-build": "^4.8.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
