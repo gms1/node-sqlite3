@@ -192,6 +192,16 @@ jobs:
       - name: Run tests
         run: yarn test
 
+      - name: Verify async hook stack integrity (createdb stress test)
+        if: ${{ !contains(matrix.os, 'windows') }}
+        shell: bash
+        run: |
+          for i in $(seq 1 10); do
+            rm -f ./test/support/big.db
+            echo "createdb run $i of 10..."
+            node test/support/createdb.js
+          done
+
       - name: Upload binaries to commit artifacts
         uses: actions/upload-artifact@v7
         if: matrix.node == 24
