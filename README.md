@@ -4,7 +4,7 @@
 
 **Note:** Fortunately, there is already another well maintained fork: [AppThreat/node-sqlite3](https://github.com/AppThreat/node-sqlite3). Unfortunately, this fork didn't appear in the list of forks of TryGhost/node-sqlite3, which is why I created this fork here.
 
-:no_entry: [DEPRECATED] in favour of [@appthreat/sqlite3](https://www.npmjs.com/package/@appthreat/sqlite3)
+**So you have the choice**
 
 ---
 Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js](http://nodejs.org/).
@@ -24,6 +24,8 @@ Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js]
  - [Extension support](docs/API.md#databaseloadextension), including bundled support for the [json1 extension](https://www.sqlite.org/json1.html)
  - Big test suite
  - Written in modern C++
+ - Is built using hardening flags
+ - Promise-based API
  - Bundles SQLite v3.53.0, or you can build using a local SQLite
 
 # Installing
