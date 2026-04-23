@@ -2,28 +2,20 @@
 
 var sqlite3 = require('..');
 const assert = require("assert");
-const { createHook } = require("async_hooks");
+const { createHook, executionAsyncId, triggerAsyncId } = require("async_hooks");
+
+const DEBUG = process.env.SQLITE3_DEBUG_ASYNC_HOOKS === '1';
 
 /**
  * Stress test for async hook stack integrity.
  *
- * The bug: napi_delete_async_work() was called from within the N-API complete
- * callback (via Baton destructors), which freed the async work object before
- * Node.js fired the after/destroy async hooks. This caused a use-after-free
- * that corrupted the async hook stack, producing:
- *   "Error: async hook stack has become corrupted"
+ * The original bug manifested as:
+ *   "Error: async hook stack has become corrupted (actual: X, expected: X)"
  *
- * The fix: DeferredDelete defers napi_delete_async_work to the next event
- * loop tick via uv_idle_t, so Node.js completes the full async hook lifecycle
- * before the work object is freed.
- *
- * NOTE: This is a race condition that depends on timing and memory allocator
- * behavior. It manifests more readily on macOS (which uses jemalloc-like
- * allocation patterns) than on Linux (where freed memory may still contain
- * valid data). The test uses GC pressure and high concurrency to increase
- * the probability of triggering the bug if the fix is absent, but it cannot
- * guarantee reproduction on every run. The fix is correct regardless based
- * on analysis of the N-API async work lifecycle.
+ * This test tracks async hook lifecycle events and verifies that the
+ * before/after stack remains balanced. When SQLITE3_DEBUG_ASYNC_HOOKS=1,
+ * detailed diagnostic information is logged to stderr for debugging
+ * stack corruption issues.
  */
 describe('async_hooks stress', function() {
     this.timeout(60000);
@@ -33,9 +25,8 @@ describe('async_hooks stress', function() {
 
     /**
      * Wait for all async hooks to be destroyed after closing the database.
-     * DeferredDelete uses uv_idle_t which fires in the idle phase of the
-     * next event loop iteration, so we need to spin the event loop enough
-     * times for all destroy hooks to fire.
+     * napi_delete_async_work fires the destroy hook (deferred via SetImmediate),
+     * so we need to spin the event loop enough times for all destroy hooks to fire.
      */
     function waitForDestroyHooks(initIds, destroyIds, timeout, callback) {
         const start = Date.now();
@@ -59,8 +50,7 @@ describe('async_hooks stress', function() {
                     `Timeout waiting for destroy hooks. ${leaked.length} hooks never destroyed: ${leaked.slice(0, 10).join(', ')}...`
                 ));
             }
-            // Spin the event loop: two setImmediate calls ensure we pass through
-            // an idle phase where DeferredDelete's uv_idle_t callbacks fire.
+            // Spin the event loop to allow deferred destroy hooks to fire.
             setImmediate(() => setImmediate(check));
         }
         // Start checking after giving the event loop time to process deferred deletions.
@@ -76,6 +66,70 @@ describe('async_hooks stress', function() {
         if (typeof global.gc === 'function') {
             global.gc();
         }
+    }
+
+    /**
+     * Create a debug-enabled async_hooks hook that logs detailed information
+     * about each hook invocation when SQLITE3_DEBUG_ASYNC_HOOKS=1.
+     */
+    function createDebugHook(initIds, destroyIds, beforeAfterStack, options = {}) {
+        const { logPrefix = '', trackBeforeAfter = true } = options;
+        let hookDepth = 0;
+
+        const hook = createHook({
+            init(asyncId, type, triggerAsyncId_, resource) {
+                if (type.startsWith("sqlite3.")) {
+                    initIds.add(asyncId);
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[INIT] ${logPrefix} asyncId=${asyncId} type=${type} triggerAsyncId=${triggerAsyncId_} executionAsyncId=${executionAsyncId()}\n`
+                        );
+                    }
+                }
+            },
+            before(asyncId) {
+                if (initIds.has(asyncId)) {
+                    if (trackBeforeAfter) {
+                        beforeAfterStack.push(asyncId);
+                    }
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[BEFORE] ${logPrefix} asyncId=${asyncId} executionAsyncId=${executionAsyncId()} triggerAsyncId=${triggerAsyncId()} stackDepth=${beforeAfterStack.length}\n`
+                        );
+                    }
+                }
+            },
+            after(asyncId) {
+                if (initIds.has(asyncId)) {
+                    if (trackBeforeAfter) {
+                        const last = beforeAfterStack.pop();
+                        if (asyncId !== last) {
+                            const msg = `async hook before/after mismatch: after(${asyncId}) but expected after(${last})`;
+                            if (DEBUG) {
+                                process.stderr.write(`[AFTER ERROR] ${logPrefix} ${msg}\n`);
+                            }
+                            assert.strictEqual(asyncId, last, msg);
+                        }
+                    }
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[AFTER] ${logPrefix} asyncId=${asyncId} executionAsyncId=${executionAsyncId()} triggerAsyncId=${triggerAsyncId()} stackDepth=${beforeAfterStack.length}\n`
+                        );
+                    }
+                }
+            },
+            destroy(asyncId) {
+                if (initIds.has(asyncId)) {
+                    destroyIds.add(asyncId);
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[DESTROY] ${logPrefix} asyncId=${asyncId} executionAsyncId=${executionAsyncId()}\n`
+                        );
+                    }
+                }
+            }
+        });
+        return hook;
     }
 
     it('should maintain async hook stack integrity under concurrent operations', function(done) {
@@ -94,17 +148,31 @@ describe('async_hooks stress', function() {
                 if (type.startsWith("sqlite3.")) {
                     initIds.add(asyncId);
                     initCount++;
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[INIT] asyncId=${asyncId} type=${type} triggerAsyncId=${triggerAsyncId()} executionAsyncId=${executionAsyncId()}\n`
+                        );
+                    }
                 }
             },
             before(asyncId) {
                 if (initIds.has(asyncId)) {
                     beforeAfterStack.push(asyncId);
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[BEFORE] asyncId=${asyncId} executionAsyncId=${executionAsyncId()} stackDepth=${beforeAfterStack.length}\n`
+                        );
+                    }
                 }
             },
             after(asyncId) {
                 if (initIds.has(asyncId)) {
-                    // Must match the most recent before() that hasn't been after'd yet
                     const last = beforeAfterStack.pop();
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[AFTER] asyncId=${asyncId} executionAsyncId=${executionAsyncId()} stackDepth=${beforeAfterStack.length}\n`
+                        );
+                    }
                     assert.strictEqual(asyncId, last,
                         `async hook before/after mismatch: after(${asyncId}) but expected after(${last})`);
                 }
@@ -113,6 +181,11 @@ describe('async_hooks stress', function() {
                 if (initIds.has(asyncId)) {
                     destroyIds.add(asyncId);
                     destroyCount++;
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[DESTROY] asyncId=${asyncId} executionAsyncId=${executionAsyncId()}\n`
+                        );
+                    }
                 }
             }
         });
@@ -156,7 +229,6 @@ describe('async_hooks stress', function() {
 
                                     // The most important assertion: we got here without
                                     // "async hook stack has become corrupted" being thrown.
-                                    // That means the DeferredDelete fix is working.
                                     done();
                                 });
                             });
@@ -271,7 +343,7 @@ describe('async_hooks stress', function() {
                             // Force GC to reclaim freed async work memory
                             tryGC();
                             cycle++;
-                            // Let deferred deletions complete before next cycle
+                            // Let deferred destroy hooks complete before next cycle
                             setImmediate(() => setImmediate(runNextCycle));
                         });
                     });
@@ -285,7 +357,7 @@ describe('async_hooks stress', function() {
     it('should maintain async hook stack integrity with serialized prepared statement runs (createdb pattern)', function(done) {
         // This mirrors the createdb.js pattern that triggered the original crash:
         // db.serialize() + stmt.run() in a tight loop + finalize + close
-        // Repeating the full new→serialize→close cycle stresses DeferredDelete.
+        // Repeating the full new→serialize→close cycle stresses async work lifecycle.
 
         const CYCLES = 100;
         const COUNT = 10;
@@ -298,16 +370,31 @@ describe('async_hooks stress', function() {
             init(asyncId, type) {
                 if (type.startsWith("sqlite3.")) {
                     initIds.add(asyncId);
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[INIT] cycle asyncId=${asyncId} type=${type} triggerAsyncId=${triggerAsyncId()} executionAsyncId=${executionAsyncId()}\n`
+                        );
+                    }
                 }
             },
             before(asyncId) {
                 if (initIds.has(asyncId)) {
                     beforeAfterStack.push(asyncId);
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[BEFORE] cycle asyncId=${asyncId} executionAsyncId=${executionAsyncId()} stackDepth=${beforeAfterStack.length}\n`
+                        );
+                    }
                 }
             },
             after(asyncId) {
                 if (initIds.has(asyncId)) {
                     const last = beforeAfterStack.pop();
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[AFTER] cycle asyncId=${asyncId} executionAsyncId=${executionAsyncId()} stackDepth=${beforeAfterStack.length}\n`
+                        );
+                    }
                     assert.strictEqual(asyncId, last,
                         `async hook before/after mismatch: after(${asyncId}) but expected after(${last})`);
                 }
@@ -315,6 +402,11 @@ describe('async_hooks stress', function() {
             destroy(asyncId) {
                 if (initIds.has(asyncId)) {
                     destroyIds.add(asyncId);
+                    if (DEBUG) {
+                        process.stderr.write(
+                            `[DESTROY] cycle asyncId=${asyncId} executionAsyncId=${executionAsyncId()}\n`
+                        );
+                    }
                 }
             }
         });
@@ -354,7 +446,7 @@ describe('async_hooks stress', function() {
                     db.close(function (err) {
                         assert.ifError(err);
                         cycle++;
-                        // Let deferred deletions complete before next cycle
+                        // Let deferred destroy hooks complete before next cycle
                         setImmediate(() => setImmediate(runNextCycle));
                     });
                 });

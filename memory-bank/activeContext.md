@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Last Updated**: 2026-04-21
+**Last Updated**: 2026-04-23
 
 All 277 tests pass (239 CJS + 38 ESM).
 
