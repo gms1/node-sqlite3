@@ -1,8 +1,22 @@
 # Development and Release Guide
 
+## PRs and pushes to main
+
+On PRs and pushes to main (non-tag), the CI also creates an npm tarball artifact (via `npm pack`) so the package contents can be inspected.
+This package contains the prebuilt binaries for these platforms:
+  - macOS (x64, arm64)
+  - Linux glibc (x64, arm64)
+  - Windows (x64)
+
 ## Version Bumping
 
 This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-version) to manage version releases.
+
+### Version format
+
+- Versions follow [SemVer](https://semver.org/) format
+- Tags should be prefixed with `v`, e.g., `v6.0.2`
+- The version in `package.json` must match the Git tag version
 
 ### How to release a new version
 
@@ -23,6 +37,11 @@ This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-vers
 
    The CI workflow will automatically:
    - Build prebuilt binaries for all platforms
+    - macOS (x64, arm64)
+    - Linux glibc (x64, arm64)
+    - Linux musl (x64, arm64)
+    - Windows (x64)
+
    - Create an npm tarball via `npm pack`
    - Upload binaries and tarball to the GitHub Release (as a pre-release)
    - Smoke-test the tarball on all platforms
@@ -43,31 +62,7 @@ This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-vers
    - Publish it to npm (using trusted publishing / OIDC)
    - Mark the GitHub Release as a full release (not pre-release)
 
-### Version format
-
-- Versions follow [SemVer](https://semver.org/) format
-- Tags should be prefixed with `v`, e.g., `v6.0.2`
-- The version in `package.json` must match the Git tag version
-
-## Release process
-
-When you push a tag (e.g., `v6.0.2`), the CI workflow will:
-
-1. Build prebuilt binaries for:
-   - macOS (x64, arm64)
-   - Linux glibc (x64, arm64)
-   - Linux musl (x64, arm64)
-   - Windows (x64)
-
-2. Upload binaries and npm tarball to GitHub Release (as pre-release)
-
-3. Smoke-test the npm tarball on all platforms
-
-Publishing to npm is a **separate manual step** — trigger the `Publish to npm` workflow after reviewing the pre-release.
-
-On PRs and pushes to main (non-tag), the CI also creates an npm tarball artifact (via `npm pack`) so the package contents can be inspected before publishing.
-
-## Checking the release
+### Checking the release
 
 After releasing, you can verify:
 - GitHub Release with binaries: https://github.com/gms1/node-sqlite3/releases
