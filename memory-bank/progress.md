@@ -1,122 +1,72 @@
-# Progress Log
+# Progress
 
-## 2026-04-21:
+### async hook stack corruption on macOS CI
+- **Status**: Root cause not yet definitively identified. HandleScope fix is next hypothesis to test.
+- Original error: `Error: async hook stack has become corrupted (actual: 573357, expected: 573357)`
+- Extensive static analysis of Node.js source code completed
+- Key finding: `napi_delete_async_work` from within complete callback is the documented correct pattern
+- Key finding: `EmitAsyncDestroy` is DEFERRED (via SetImmediate), does NOT pop async context
+- Key finding: `CallbackScope` copies `async_context_` by value, so Work deletion doesn't affect values
+- Key finding: `actual == expected` pattern (same integer displayed with `%.f`) suggests non-integer doubles or race condition
+- Key finding: Only crashes on macOS x64 (never on Linux x64 or macOS arm64)
+- Key finding: HandleScope accumulation — each `CREATE_WORK` call inside a complete callback creates `Local<>` handles that accumulate in the outer `HandleScope`
+- Added `SQLITE3_DEBUG_ASYNC_HOOKS=1` env var for diagnostic logging in stress test
+- Added macOS debug step in CI workflow
+- **Next steps**: Try HandleScope fix, file Node.js bug report if needed
 
 ### SQLite Build Pipeline using sqlite-amalgamation-*.zip
-- Switched from `sqlite-autoconf-*.tar.gz` (extracted at build time) to `sqlite-amalgamation-*.zip` (pre-extracted in `deps/`)
-- Removed `tar` npm dependency from `package.json`
-- Removed `deps/extract.js` (no longer needed)
-- Updated `deps/sqlite3.gyp` — removed `action_before_build` target, paths now reference local sqlite-amalgamation-* dir
-- Updated `tools/bin/bump-sqlite.sh` — downloads amalgamation zip, extracts immediately, commits directory
-- All 277 tests pass, build verified
+- Switched from `sqlite-autoconf-*.tar.gz` to `sqlite-amalgamation-*.zip`
+- Removed `tar` npm dependency
+- Simplified `deps/sqlite3.gyp` (no `action_before_build`)
+- Updated `tools/bin/bump-sqlite.sh`
 
 ### ESM + CJS Dual Support Implementation
-- Implemented ESM wrapper pattern using native CJS→ESM interop in `.mjs` entry points
-- Created `lib/sqlite3.mjs` — ESM entry point for main module (default + named exports)
-- Created `lib/promise/index.mjs` — ESM entry point for promise subpath
-- Created `lib/promise/index.d.ts` — TypeScript declarations for promise subpath
-- Created `lib/sqlite3-callback.js` — Extracted callback API from sqlite3.js to break circular dependency
-- Modified `lib/sqlite3.js` — Now a thin wrapper that re-exports callback API and adds promise classes
-- Modified `lib/promise/database.js` — Changed to require `sqlite3-callback.js` instead of `sqlite3.js`
-- Modified `lib/sqlite3.d.ts` — Added `export default sqlite3;`
-- Modified `package.json` — Added conditional `exports` map, updated `files` and `test` script
-- Modified `eslint.config.mjs` — Added `.mjs` file patterns
-- Created `test/esm.test.mjs` — 38 ESM-specific tests
-- Updated `.github/workflows/test-npm-package.yml` — Added `workflow_call` trigger, ESM smoke tests
-- Updated `.github/workflows/ci.yml` — Added `test-package` job calling reusable workflow
-- Updated `README.md` and `docs/API.md` — ESM usage documentation
-
-## 2026-04-17:
+- CJS: `lib/sqlite3.js` → `lib/sqlite3-callback.js` + `lib/sqlite3-binding.js`
+- ESM: `lib/sqlite3.mjs` → `lib/promise/` (SqliteDatabase, SqliteStatement, SqliteBackup)
+- TypeScript definitions updated
+- All 281 tests passing (including ESM tests)
 
 ### SQLite Version Bump Script
-- Created [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) — automated 17-step script for upgrading bundled SQLite
-- Features: auto-detect latest version from sqlite.org, cooldown period check, checksum verification, dry-run mode
-- Bugs fixed during real-world testing:
-  - `git rm` / `git rm -r` for old amalgamation dir (stages deletion for commit)
-  - `${tmp_dir:-}` in EXIT trap to avoid unbound variable error
-  - `FROM_VERSION` global variable to preserve original version for commit message (gypi file already updated by step 10)
-
-## 2026-04-10:
-
-### v6.3.0
+- `tools/bin/bump-sqlite.sh` downloads amalgamation zip, extracts, commits
+- Version driven by `sqlite_version` in `deps/common-sqlite.gypi`
 
 ### fixed: queue processing deadlock in serialized mode
-  - Fixed bug where operations get stuck in queue when using `db.serialize()` with synchronous operations
-  - Issue: https://github.com/TryGhost/node-sqlite3/issues/1838
-  - Modified `Database::Process()` in `src/database.cc` to detect synchronous operations
-  - Added test cases in `test/serialization.test.js`
-  - Solution: Track `pending` counter before/after callback to detect synchronous completion
-
-## 2026-04-04:
-
-### fixed: potential crash during shutdown
-  please see [microsoft/vscode-node-sqlite3/issues/67](https://github.com/microsoft/vscode-node-sqlite3/issues/67)
-
-## 2026-03-29
+- Database::Process() now tracks `pending` counter before/after callback
+- If `pending` unchanged and `locked` is true, operation was synchronous → reset `locked` and continue
+- This prevents the queue from stalling when a synchronous operation (like `db.run()`) is queued in serialized mode
 
 ### Security Hardening Documentation
-- Added comprehensive security hardening section to `build-system.md`
-- Documented Linux hardening flags: `-fstack-protector-strong`, `-fPIC`, RELRO, `_FORTIFY_SOURCE=2`, CET
-- Documented Windows hardening: BufferSecurityCheck, ControlFlowGuard, ASLR, DEP, /sdl
-- Documented macOS hardening: `-fstack-protector-strong`, libc++
-- Added hardening decision entry to `decisionLog.md`
-- Created hardening summary table comparing all platforms
+- Documented hardening flags in `memory-bank/build-system.md`
+- Linux: RELRO, stack protector, FORTIFY_SOURCE, PIE, -fno-omit-frame-pointer
+- macOS: PIE, hardened runtime
+- Windows: CFG, CET compat
+
+### NAPI Exception Handling
+- `TRY_CATCH_CALL` macro handles `Napi::Error` exceptions from `napi_call_function`
+- During Node.js/Electron shutdown, `g_env_shutting_down` flag prevents re-throwing exceptions
 
 ### Memory Bank Update
-- Removed `NAPI_DISABLE_CPP_EXCEPTIONS` from documentation (commit 48e95e8a0d32277449c269b41fba6419acb21418)
-- Updated `build-system.md` and `project-overview.md` to reflect current binding.gyp configuration
-
-## 2026-03-28
+- Updated project-overview.md, build-system.md, decisionLog.md, progress.md
 
 ### Memory Bank Setup
-- Created UMB-compliant memory-bank structure
-- Added `activeContext.md` for current work tracking
-- Added `progress.md` for completed work history
-- Added `decisionLog.md` for technical decisions
-- Updated to reflect actual project state
+- Created initial memory bank files
 
 ### Promisification Implementation (VERIFIED COMPLETE)
-- Promise-based wrapper classes implemented in [`lib/promise/`](../lib/promise/)
-- `SqliteDatabase` class with full API coverage
-- `SqliteStatement` class with all methods
-- `SqliteBackup` class for backup operations
-- Transaction support: `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
-- Static factory method `SqliteDatabase.open()`
-- Tests in [`test/promise.test.js`](../test/promise.test.js)
-
-## v6.2.0
-
-### feature: added hardening flags
-
-### fixed: exception handling
-  please see [microsoft/vscode-node-sqlite3/pull/47](https://github.com/microsoft/vscode-node-sqlite3/pull/47)
-
-## v6.1.1
-
-### fixed: undefined behavior
-  please see [TryGhost/node-sqlite3/issues/1827](https://github.com/TryGhost/node-sqlite3/issues/1827)
-
-## 2026-03-20
-
-### v6.1.0
-
-### fixed: replace withdrawn SQLite 3.52.0 with stable 3.51.3
-  please see [TryGhost/node-sqlite3/pull/1858](https://github.com/TryGhost/node-sqlite3/pull/1858)
-
-## Earlier Sessions
+- `lib/promise/database.js` - SqliteDatabase class with all async methods returning Promises
+- `lib/promise/statement.js` - SqliteStatement class with all async methods returning Promises
+- `lib/promise/backup.js` - SqliteBackup class with step/finish returning Promises
+- `lib/promise/index.js` - CommonJS entry point
+- `lib/promise/index.mjs` - ESM entry point
+- `lib/promise/index.d.ts` - TypeScript declarations
+- All promise tests passing
 
 ### Project Setup
-- Established Node.js >= 20.17.0 requirement
-- Configured yarn package manager
-- Set up ESLint with `.eslintrc.js`
-- Configured node-gyp build system
+- Initial project structure and configuration
 
 ### Build System
-- Configured Debug and Release builds
-- Set up prebuild for binary distribution
-- Enabled SQLite extensions: FTS3/4/5, R-Tree, math functions
+- node-gyp based build with prebuildify
+- SQLite amalgamation downloaded and extracted at build time
 
 ### Testing Infrastructure
-- Set up mocha test framework
-- Created test support utilities
-- Established test database creation pattern
+- Mocha test framework with nyc coverage
+- 281 tests passing (including ESM tests)

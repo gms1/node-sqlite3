@@ -2,6 +2,14 @@
 
 ## Technical Decisions
 
+### 2026-04-23: Add debug logging for async hook stack corruption diagnosis
+
+**Decision**: Add `SQLITE3_DEBUG_ASYNC_HOOKS=1` environment variable to enable detailed diagnostic logging in the async_hooks stress test. When enabled, logs `executionAsyncId`, `triggerAsyncId`, and stack depth at each `init`, `before`, `after`, `destroy` hook invocation.
+
+**Rationale**: Static analysis of Node.js source code could not definitively identify the root cause of the async hook stack corruption. The error `(actual: 573357, expected: 573357)` shows identical displayed values but different binary values, suggesting `kExecutionAsyncId` was modified between `InternalCallbackScope` push and pop. Runtime debug logging is needed to capture the exact push/pop sequence.
+
+**Files changed**: `test/async_hooks_stress.test.js` (added debug logging via `SQLITE3_DEBUG_ASYNC_HOOKS` env var), `.github/workflows/ci.yml` (added macOS debug step)
+
 ### 2026-04-21: SQLite Build Pipeline using sqlite-amalgamation-*.zip
 
 **Decision**: Switch from `sqlite-autoconf-*.tar.gz` as an amalgamation (extracted at build time via `tar` npm package) to `sqlite-amalgamation-*.zip` (pre-extracted in `deps/`).

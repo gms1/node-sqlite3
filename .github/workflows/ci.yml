@@ -189,6 +189,12 @@ jobs:
           echo "---"
           file "$BIN"
 
+      - name: Debug async hook stack integrity (macOS only, with diagnostic logging)
+        if: contains(matrix.os, 'macos')
+        shell: bash
+        run: |
+          SQLITE3_DEBUG_ASYNC_HOOKS=1 npx mocha -R spec --timeout 120000 test/async_hooks_stress.test.js 2>&1
+
       - name: Run tests
         run: yarn test
 

@@ -21,10 +21,10 @@ function createdb(callback) {
 
     // Make sure the file exists and is also valid.
     if (existsSync(db_path) && statSync(db_path).size !== 0) {
-        console.log('okay: database already created (' + db_path + ')');
+        console.log('test database: already created (' + db_path + ')');
         if (callback) callback();
     } else {
-        console.log("Creating test database... This may take several minutes.");
+        console.log("test database: Creating... This may take several minutes.");
         var db = new sqlite3.Database(db_path);
         db.serialize(function() {
             db.run("CREATE TABLE foo (id INT, txt TEXT)");
@@ -36,6 +36,7 @@ function createdb(callback) {
             stmt.finalize();
             db.run("COMMIT TRANSACTION", [], function () {
                 db.close(callback);
+                console.log("test database: Created.");
             });
         });
     }
