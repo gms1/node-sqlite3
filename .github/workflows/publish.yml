@@ -1,0 +1,62 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The release tag to publish (e.g. v6.4.0)'
+        required: true
+        type: string
+      npm_tag:
+        description: 'npm dist-tag (e.g. next, beta). Leave empty for latest.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate tag input
+        run: |
+          if [ -z "${{ inputs.tag }}" ]; then
+            echo "ERROR: tag input is required"
+            exit 1
+          fi
+          echo "Publishing release: ${{ inputs.tag }}"
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Download tarball from GitHub Release
+        run: |
+          gh release download ${{ inputs.tag }} --pattern '*.tgz' --dir .
+          echo "Downloaded tarball:"
+          ls -la *.tgz
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Publish to npm
+        run: |
+          TARBALL=$(ls *.tgz | head -1)
+          if [ -n "${{ inputs.npm_tag }}" ]; then
+            npm publish "$TARBALL" --access public --tag ${{ inputs.npm_tag }}
+          else
+            npm publish "$TARBALL" --access public
+          fi
+
+      - name: Mark release as not pre-release
+        run: gh release edit ${{ inputs.tag }} --draft=false
+        env:
+          GH_TOKEN: ${{ github.token }}

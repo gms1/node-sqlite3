@@ -259,9 +259,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   package:
-    needs: [build]
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request') || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+    needs: [build, build-musl]
+    if: >-
+      !cancelled() &&
+      needs.build.result == 'success' &&
+      (needs.build-musl.result == 'success' || needs.build-musl.result == 'skipped')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -301,43 +306,18 @@ jobs:
           path: '*.tgz'
           retention-days: 7
 
+      - name: Upload npm tarball to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: gh release upload ${GITHUB_REF#refs/tags/} *.tgz --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   test-package:
     needs: [package]
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request') || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+    if: >-
+      !cancelled() &&
+      needs.package.result == 'success'
     uses: ./.github/workflows/test-npm-package.yml
     with:
       target_run_id: ${{ github.run_id }}
       node_version: '22'
-
-  publish-npm:
-    needs: [build, build-musl]
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
-
-      - name: Download all prebuilt binary artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: prebuilds-artifacts
-          merge-multiple: true
-
-      - name: Merge prebuilds into package
-        run: |
-          mkdir -p prebuilds
-          cp -r prebuilds-artifacts/*/ prebuilds/ 2>/dev/null || true
-          cp -r prebuilds-artifacts/ prebuilds/ 2>/dev/null || true
-          find prebuilds -name '*.node' -type f
-
-      - name: Publish to npm
-        run: npm publish

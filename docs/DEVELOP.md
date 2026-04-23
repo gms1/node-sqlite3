@@ -23,14 +23,25 @@ This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-vers
 
    The CI workflow will automatically:
    - Build prebuilt binaries for all platforms
-   - Upload them to GitHub Release
-   - Publish the package to npm (with bundled prebuilt binaries)
+   - Create an npm tarball via `npm pack`
+   - Upload binaries and tarball to the GitHub Release (as a pre-release)
+   - Smoke-test the tarball on all platforms
 
-3. ** Edit the generated Pre-release
-  - select "Generate release notes" and adjust them to your needs
-  - uncheck "Set as pre-release"
-  - check "Set as latest release" if it is
-  - click "Update Release
+3. **Review the pre-release** on GitHub:
+   - Check that CI passed (build, test, and smoke tests)
+   - Inspect the tarball contents if needed
+   - Edit the release notes if desired
+
+4. **Publish to npm** — trigger the `Publish to npm` workflow manually:
+   - Go to **Actions → Publish to npm → Run workflow**
+   - Enter the tag (e.g., `v6.4.0`)
+   - Optionally enter an npm dist-tag (e.g., `next`, `beta`) — leave empty for `latest`
+   - Click **Run workflow**
+
+   The workflow will:
+   - Download the tarball from the GitHub Release
+   - Publish it to npm (using trusted publishing / OIDC)
+   - Mark the GitHub Release as a full release (not pre-release)
 
 ### Version format
 
@@ -48,9 +59,11 @@ When you push a tag (e.g., `v6.0.2`), the CI workflow will:
    - Linux musl (x64, arm64)
    - Windows (x64)
 
-2. Upload binaries to GitHub Release
+2. Upload binaries and npm tarball to GitHub Release (as pre-release)
 
-3. Merge all prebuilt binaries into the npm package and publish to npm
+3. Smoke-test the npm tarball on all platforms
+
+Publishing to npm is a **separate manual step** — trigger the `Publish to npm` workflow after reviewing the pre-release.
 
 On PRs and pushes to main (non-tag), the CI also creates an npm tarball artifact (via `npm pack`) so the package contents can be inspected before publishing.
 
