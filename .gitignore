@@ -35,3 +35,5 @@ prebuilds
 .roomodes
 /plans
 /tools/temp
+/.cache
+/compile_commands.json
