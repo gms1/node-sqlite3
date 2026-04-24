@@ -11,12 +11,12 @@ describe('cache', function() {
         var filename = 'test/tmp/test_cache.db';
         helper.deleteFile(filename);
         var opened1 = false, opened2 = false;
-        var db1 = new sqlite3.cached.Database(filename, function(err) {
+        var db1 = new sqlite3.cached.Database(filename, function (err) {
             if (err) throw err;
             opened1 = true;
             if (opened1 && opened2) done();
         });
-        var db2 = new sqlite3.cached.Database(filename, function(err) {
+        var db2 = new sqlite3.cached.Database(filename, function (err) {
             if (err) throw err;
             opened2 = true;
             if (opened1 && opened2) done();
@@ -38,5 +38,38 @@ describe('cache', function() {
                 assert.equal(db1, db2);
             });
         });
+    });
+
+    it('should not cache memory database', function (done) {
+        var filename = ':memory:';
+        var opened1 = false, opened2 = false;
+        var db1 = new sqlite3.cached.Database(filename, function (err) {
+            if (err) throw err;
+            opened1 = true;
+            if (opened1 && opened2) done();
+        });
+        var db2 = new sqlite3.cached.Database(filename, function (err) {
+            if (err) throw err;
+            opened2 = true;
+            if (opened1 && opened2) done();
+        });
+        assert.notEqual(db1, db2);
+    });
+
+
+    it('should not cache speacial database', function (done) {
+        var filename = '';
+        var opened1 = false, opened2 = false;
+        var db1 = new sqlite3.cached.Database(filename, sqlite3.OPEN_READONLY, function (err) {
+            if (err) throw err;
+            opened1 = true;
+            if (opened1 && opened2) done();
+        });
+        var db2 = new sqlite3.cached.Database(filename, sqlite3.OPEN_READONLY, function (err) {
+            if (err) throw err;
+            opened2 = true;
+            if (opened1 && opened2) done();
+        });
+        assert.notEqual(db1, db2);
     });
 });

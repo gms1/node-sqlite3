@@ -212,6 +212,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        if: matrix.node == 24 and matrix.platform == linux-x64
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gms1/node-sqlite3
+
   build-musl:
     permissions:
       contents: write

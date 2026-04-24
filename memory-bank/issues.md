@@ -1,5 +1,61 @@
 # issues
 
+## Uncatchable Native Addon Exceptions (C++ → Napi::Error)
+
+Several operations on the native addon throw `Napi::Error` instances from C++ code that **cannot be caught by JavaScript `try/catch` or `Promise.catch()`**. These exceptions propagate as C++ exceptions through the N-API layer and terminate the process with an abort signal.
+
+### Known uncatchable scenarios
+
+#### 1. `Backup.step()` after `Backup.finish()`
+
+Calling `step()` on a backup handle that has already been finished throws:
+```
+terminate called after throwing an instance of 'Napi::Error'
+  what(): SQLITE_MISUSE: Backup is already finished
+Aborted (core dumped)
+```
+
+**Affected code paths**:
+- `lib/promise/backup.js` line 97-99: The `if (!this._backup)` guard only checks for `null`, but after `finish()` the native handle is in a "finished" state that still exists but is invalid
+- The callback API (`lib/sqlite3-callback.js`) has the same issue — `backup.step()` after `backup.finish()` is uncatchable
+
+**Workaround in promise wrapper**: The `SqliteBackup.step()` method checks `if (!this._backup)` before calling the native `step()`, but this only catches the case where `_backup` is explicitly set to `null`. After `finish()`, the `_backup` reference is still non-null but the native handle is invalid. Setting `_backup = null` in `finish()` would prevent the crash but would change the semantics of the `idle`/`completed`/`failed` getters after finish.
+
+**Test impact**: Cannot write integration tests for `step()` after `finish()` — the process aborts before Mocha can report the failure. Unit tests with mocks are used instead (see `test/promise.unit.test.js`).
+
+#### 2. Statement operations after `Database.close()`
+
+Calling methods on a `Statement` after its parent `Database` has been closed throws uncatchable Napi::Error:
+```
+terminate called after throwing an instance of 'Napi::Error'
+  what(): The expression evaluated to a falsy value: assert(err)
+Aborted (core dumped)
+```
+
+**Affected operations**: `Statement.map()`, `Statement.all()`, `Statement.get()`, `Statement.run()`, `Statement.each()`, `Statement.finalize()`, `Statement.reset()`, `Statement.bind()`
+
+**Workaround**: Always finalize all statements before closing the database. The callback API's `Database.close()` returns `SQLITE_BUSY` error if unfinalized statements exist, but if you force-close and then use a statement, the crash is uncatchable.
+
+**Test impact**: Cannot test `Statement.prototype.map` error path by closing the database first. Unit tests with stubs are used instead (see `test/callback-branches.test.js`).
+
+#### 3. `verbose.test.js` assertion failure after `verbose()` called
+
+When `sqlite3.verbose()` has been called globally (setting `isVerbose = true`), the test "Should not add trace info to error when verbose is not called" in `verbose.test.js` will fail because the error stack DOES contain trace info. The `resetVerbose()` function restores original methods but does NOT reset the `isVerbose` flag. The assertion `err.stack.indexOf(invalid_sql) === -1` fails, and the Napi::Error from the assertion propagates as an uncatchable C++ exception.
+
+**Workaround**: The `verbose()` idempotency test was placed as the LAST test in `verbose.test.js` to avoid contaminating the "not called" test. Test ordering matters for this file.
+
+### Root cause
+
+These are C++ exceptions thrown via `Napi::Error` that propagate through the N-API boundary. JavaScript `try/catch` only catches JavaScript exceptions. When a C++ exception reaches the N-API boundary without being caught by a `Napi::TryCatch` block on the C++ side, it triggers `std::terminate()` which calls `abort()`.
+
+### Design implications
+
+1. **Promise wrappers must guard against invalid states** before calling native methods, since native errors cannot be caught and converted to rejected promises
+2. **Test coverage for error paths** in native code must use mocks/stubs rather than trying to trigger actual native errors
+3. **Global state changes** (like `verbose()`) must be carefully managed in test suites to avoid cross-test contamination
+
+---
+
 ## async hook stack corruption
 
 within CI workflow on macOS we got an async hook stack corruption as race condition in native addon

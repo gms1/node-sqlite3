@@ -468,9 +468,40 @@ describe('SqliteDatabase', () => {
             await assert.rejects(async () => db.endTransaction(true), /database connection not open/);
         });
 
+        it('should ignore no-transaction errors in endTransaction', async () => {
+            const db = await SqliteDatabase.open(':memory:');
+            // Calling endTransaction without an active transaction
+            // should resolve (ignoring "no transaction" errors)
+            await db.endTransaction(true);
+            await db.endTransaction(false);
+            await db.close();
+        });
+
         it('should reject loadExtension on unopened database', async () => {
             const db = new SqliteDatabase();
             await assert.rejects(async () => db.loadExtension('test.ext'), /database connection not open/);
+        });
+
+        it('should reject loadExtension with invalid extension', async () => {
+            const db = await SqliteDatabase.open(':memory:');
+            await assert.rejects(async () => db.loadExtension('nonexistent_extension'), /Error/);
+            await db.close();
+        });
+
+        it('should handle each with callback only (no params)', async () => {
+            const db = await SqliteDatabase.open(':memory:');
+            await db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)');
+            await db.run("INSERT INTO test (value) VALUES ('one')");
+            await db.run("INSERT INTO test (value) VALUES ('two')");
+
+            const values = [];
+            const count = await db.each('SELECT * FROM test ORDER BY id', (err, row) => {
+                if (err) throw err;
+                values.push(row.value);
+            });
+            assert.strictEqual(count, 2);
+            assert.deepStrictEqual(values, ['one', 'two']);
+            await db.close();
         });
     });
 });
@@ -586,6 +617,55 @@ describe('SqliteStatement', () => {
             await stmt.finalize();
         });
     });
+
+    describe('get with bound params', () => {
+        it('should get single row using bound params (no params passed)', async () => {
+            await db.run("INSERT INTO test (value) VALUES ('hello')");
+            const stmt = await db.prepare('SELECT * FROM test WHERE id = ?');
+            stmt.bind(1);
+            const row = await stmt.get();
+            assert.strictEqual(row.value, 'hello');
+            await stmt.finalize();
+        });
+    });
+
+    describe('all with params', () => {
+        it('should get all rows with params', async () => {
+            await db.run("INSERT INTO test (value) VALUES ('one')");
+            await db.run("INSERT INTO test (value) VALUES ('two')");
+            const stmt = await db.prepare('SELECT * FROM test WHERE id <= ?');
+            const rows = await stmt.all(2);
+            assert.strictEqual(rows.length, 2);
+            await stmt.finalize();
+        });
+    });
+
+    describe('each with params', () => {
+        it('should iterate over rows with params and callback', async () => {
+            await db.run("INSERT INTO test (value) VALUES ('one')");
+            await db.run("INSERT INTO test (value) VALUES ('two')");
+            const values = [];
+            const stmt = await db.prepare('SELECT * FROM test WHERE id <= ?');
+            const count = await stmt.each(2, (err, row) => {
+                if (err) throw err;
+                values.push(row.value);
+            });
+            assert.strictEqual(count, 2);
+            assert.deepStrictEqual(values, ['one', 'two']);
+            await stmt.finalize();
+        });
+    });
+
+    describe('run error', () => {
+        it('should reject on UNIQUE constraint violation', async () => {
+            await db.exec('CREATE TABLE unique_test (id INTEGER PRIMARY KEY, value TEXT UNIQUE)');
+            await db.run("INSERT INTO unique_test (value) VALUES ('hello')");
+            const stmt = await db.prepare('INSERT INTO unique_test (value) VALUES (?)');
+            await assert.rejects(async () => stmt.run('hello'), /UNIQUE/);
+            await stmt.finalize();
+        });
+    });
+
 });
 
 describe('SqliteBackup', () => {
@@ -656,6 +736,31 @@ describe('SqliteBackup', () => {
         // Clean up
         helper.deleteFile('test/tmp/backup4.db');
     });
+
+    it('should report failed as false in normal operation', async () => {
+        const backup = await db.backup('test/tmp/backup_failed.db');
+        assert.strictEqual(backup.failed, false);
+        await backup.step(-1);
+        assert.strictEqual(backup.failed, false);
+        backup.finish();
+        helper.deleteFile('test/tmp/backup_failed.db');
+    });
+
+    it('should report remaining and pageCount before step', async () => {
+        const backup = await db.backup('test/tmp/backup_pages.db');
+        assert.strictEqual(backup.remaining, -1);
+        assert.strictEqual(backup.pageCount, -1);
+        backup.finish();
+        helper.deleteFile('test/tmp/backup_pages.db');
+    });
+
+    it('should step with specific page count', async () => {
+        const backup = await db.backup('test/tmp/backup_step_n.db');
+        await backup.step(1);
+        backup.finish();
+        helper.deleteFile('test/tmp/backup_step_n.db');
+    });
+
 });
 
 describe('TypeScript generics (demonstration)', () => {
