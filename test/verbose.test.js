@@ -57,4 +57,22 @@ describe('verbose', function() {
             done();
         });
     });
+
+    it('Should be idempotent when called twice', function(done) {
+        // verbose() was already called in the first test, so isVerbose is true.
+        // Calling it again should be a no-op (covers the `if (!isVerbose)` false branch).
+        // Note: resetVerbose() restored original methods but isVerbose flag stays true,
+        // so the second verbose() call skips re-tracing.
+        sqlite3.verbose();
+        sqlite3.verbose(); // Second call - isVerbose is already true, no-op
+
+        var db = new sqlite3.Database(':memory:');
+        db.run(invalid_sql, function(err) {
+            assert(err instanceof Error);
+            // Just verify the call doesn't throw - trace info won't be present
+            // because resetVerbose() restored original methods and isVerbose
+            // prevents re-tracing
+            done();
+        });
+    });
 });

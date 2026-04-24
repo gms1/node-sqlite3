@@ -26,6 +26,7 @@ local.env
 setup.sh
 /build-tmp-napi-v3
 /build-tmp-napi-v6
+/coverage
 /.nyc_output
 *.tgz
 package-lock.json

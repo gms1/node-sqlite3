@@ -72,7 +72,7 @@
     "rebuild": "node-gyp rebuild",
     "frozen-install": "yarn install --frozen-lockfile",
     "lint": "eslint lib/ test/ tools/",
-    "test": "node test/support/createdb.js && nyc mocha -R spec --timeout 480000 \"test/*.test.js\" \"test/*.test.mjs\"",
+    "test": "node test/support/createdb.js && nyc --reporter=text --reporter=lcov  --reporter=html mocha -R spec --timeout 480000 \"test/*.test.js\" \"test/*.test.mjs\"",
     "bear": "bear -- node-gyp rebuild"
   },
   "license": "BSD-3-Clause",
