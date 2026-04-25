@@ -16,7 +16,7 @@
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"],
       "dependencies": [
-        "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except"
+        "<!(node -p \"require('node-addon-api').targets\"):node_addon_api"
       ],
       "conditions": [
         ["sqlite != 'internal'", {
@@ -55,7 +55,6 @@
         ["OS=='win'", {
           "msvs_settings": {
             "VCCLCompilerTool": {
-              "ExceptionHandling": 1,
               "BufferSecurityCheck": "true",
               "ControlFlowGuard": "Guard"
             },
