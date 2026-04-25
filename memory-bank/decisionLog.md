@@ -214,17 +214,30 @@ if (locked && pending == before_pending) {
 
 ---
 
-### 2026-03-29: NAPI Exception Handling
+### 2026-04-25: NAPI Exception Handling — Switched to NAPI_DISABLE_CPP_EXCEPTIONS
 
-**Decision**: Use `node_addon_api_except` instead of `NAPI_DISABLE_CPP_EXCEPTIONS=1`
+**Decision**: Use `node_addon_api` (NAPI_DISABLE_CPP_EXCEPTIONS mode) instead of `node_addon_api_except`
 
 **Rationale**:
-- Commit 48e95e8a0d32277449c269b41fba6419acb21418 changed the build configuration
-- Using `node_addon_api_except` from node-addon-api provides proper exception handling support
-- This is the recommended approach for modern node-addon-api versions
+- The previous decision (2026-03-29) to use `node_addon_api_except` caused uncatchable C++ exceptions that crashed the process with SIGABRT
+- `TRY_CATCH_CALL`'s `try { callback.Call() } catch (Napi::Error& e) { throw; }` re-threw C++ exceptions from within async `Work_After*` callbacks where there was no C++ catch handler on the stack → `std::terminate()` → `abort()`
+- With `NAPI_DISABLE_CPP_EXCEPTIONS=1`, `Napi::Error` is never thrown as a C++ exception — it's just a JavaScript value, so all errors are catchable from JS
+- The `node_addon_api` target includes `noexcept.gypi` which defines `NODE_ADDON_API_DISABLE_CPP_EXCEPTIONS` and `-fno-exceptions`
+- No explicit `NAPI_DISABLE_CPP_EXCEPTIONS=1` define needed in `binding.gyp` — the dependency handles it
+
+**Additional fixes**:
+- Removed dead code: `TRY_CATCH_CALL` try/catch block and `throw;`, `g_env_shutting_down` mechanism
+- Initialized `retryErrors` in C++ `Backup::Backup()` constructor with `[SQLITE_BUSY, SQLITE_LOCKED]` to prevent `FATAL ERROR: Error::New napi_get_last_error_info` when `retryErrors.Value()` is called on an empty `Napi::Reference<Array>`
 
 **Files Changed**:
-- `binding.gyp`: Changed from `node_addon_api` to `node_addon_api_except` dependency
+- `binding.gyp`: Changed dependency from `node_addon_api_except` to `node_addon_api`
+- `src/macros.h`: Removed `#include <atomic>`, `g_env_shutting_down`, and try/catch from `TRY_CATCH_CALL`
+- `src/node_sqlite3.cc`: Removed `g_env_shutting_down`, `EnvCleanupHook`, `napi_add_env_cleanup_hook`
+- `src/backup.cc`: Initialize `retryErrors` in constructor
+- `test/uncatchable-exceptions.test.js`: Integration tests for both fixed scenarios
+- `test/uncatchable-scenarios/`: Child process crash reproduction scripts
+
+**Supersedes**: 2026-03-29 decision to use `node_addon_api_except`
 
 ---
 

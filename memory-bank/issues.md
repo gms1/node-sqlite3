@@ -1,58 +1,49 @@
 # issues
 
-## Uncatchable Native Addon Exceptions (C++ → Napi::Error)
+## Uncatchable Native Addon Exceptions (C++ → Napi::Error) — FIXED
 
-Several operations on the native addon throw `Napi::Error` instances from C++ code that **cannot be caught by JavaScript `try/catch` or `Promise.catch()`**. These exceptions propagate as C++ exceptions through the N-API layer and terminate the process with an abort signal.
+**Status**: Fixed as of 2026-04-25. Switched from `node_addon_api_except` to `node_addon_api` (NAPI_DISABLE_CPP_EXCEPTIONS mode), removed dead `TRY_CATCH_CALL` try/catch and `g_env_shutting_down`, and initialized `retryErrors` in the C++ Backup constructor.
 
-### Known uncatchable scenarios
+### Previously uncatchable scenarios (now catchable)
 
-#### 1. `Backup.step()` after `Backup.finish()`
+#### 1. `Backup.step()` after `Backup.finish()` — FIXED
 
-Calling `step()` on a backup handle that has already been finished throws:
-```
-terminate called after throwing an instance of 'Napi::Error'
-  what(): SQLITE_MISUSE: Backup is already finished
-Aborted (core dumped)
-```
+Previously crashed with `FATAL ERROR: Error::New napi_get_last_error_info` in `GetRetryErrors()` because `retryErrors` (`Napi::Reference<Array>`) was never initialized in the C++ constructor — it was only set by the JS wrapper in `Database.prototype.backup()`. Calling `retryErrors.Value()` on an empty reference caused a N-API fatal error.
 
-**Affected code paths**:
-- `lib/promise/backup.js` line 97-99: The `if (!this._backup)` guard only checks for `null`, but after `finish()` the native handle is in a "finished" state that still exists but is invalid
-- The callback API (`lib/sqlite3-callback.js`) has the same issue — `backup.step()` after `backup.finish()` is uncatchable
+**Fix**: Initialize `retryErrors` in the C++ `Backup::Backup()` constructor with default values `[SQLITE_BUSY, SQLITE_LOCKED]`, matching what the JS wrapper sets. Now `Backup.step()` after `Backup.finish()` returns a normal JS error: `SQLITE_MISUSE: Backup is already finished`.
 
-**Workaround in promise wrapper**: The `SqliteBackup.step()` method checks `if (!this._backup)` before calling the native `step()`, but this only catches the case where `_backup` is explicitly set to `null`. After `finish()`, the `_backup` reference is still non-null but the native handle is invalid. Setting `_backup = null` in `finish()` would prevent the crash but would change the semantics of the `idle`/`completed`/`failed` getters after finish.
+**Test**: `test/uncatchable-scenarios/backup-step-after-finish.js` — exit code 0 with "OK: got expected error".
 
-**Test impact**: Cannot write integration tests for `step()` after `finish()` — the process aborts before Mocha can report the failure. Unit tests with mocks are used instead (see `test/promise.unit.test.js`).
+#### 2. JS callback throw inside Work_After* async callback — FIXED
 
-#### 2. Statement operations after `Database.close()`
+Previously, `TRY_CATCH_CALL`'s `try { callback.Call() } catch (Napi::Error& e) { throw; }` re-threw C++ exceptions from within async `Work_After*` callbacks where there was no C++ catch handler on the stack, causing `std::terminate()` → `abort()`.
 
-Calling methods on a `Statement` after its parent `Database` has been closed throws uncatchable Napi::Error:
-```
-terminate called after throwing an instance of 'Napi::Error'
-  what(): The expression evaluated to a falsy value: assert(err)
-Aborted (core dumped)
-```
+**Fix**: Switched to `NAPI_DISABLE_CPP_EXCEPTIONS=1` (via `node_addon_api` dependency). With exceptions disabled, `Napi::Error` is never thrown as a C++ exception — it's just a JavaScript value. Also removed the dead `try/catch` and `throw;` from `TRY_CATCH_CALL` macro.
 
-**Affected operations**: `Statement.map()`, `Statement.all()`, `Statement.get()`, `Statement.run()`, `Statement.each()`, `Statement.finalize()`, `Statement.reset()`, `Statement.bind()`
+**Test**: `test/uncatchable-scenarios/stmt-callback-throws.js` — exit code 1 (normal JS uncaught exception) instead of 134 (SIGABRT).
 
-**Workaround**: Always finalize all statements before closing the database. The callback API's `Database.close()` returns `SQLITE_BUSY` error if unfinalized statements exist, but if you force-close and then use a statement, the crash is uncatchable.
+#### 3. Statement operations after `Database.close()` — Already catchable
 
-**Test impact**: Cannot test `Statement.prototype.map` error path by closing the database first. Unit tests with stubs are used instead (see `test/callback-branches.test.js`).
+`Statement::Schedule()` calls `CleanQueue()` synchronously on the main JS thread, where `InstanceMethodCallbackWrapper` catches the `Napi::Error` and converts it to a JS exception. This scenario returns a normal JS error: `SQLITE_MISUSE: Statement is already finalized`.
 
-#### 3. `verbose.test.js` assertion failure after `verbose()` called
+#### 4. `verbose.test.js` assertion failure after `verbose()` called
 
-When `sqlite3.verbose()` has been called globally (setting `isVerbose = true`), the test "Should not add trace info to error when verbose is not called" in `verbose.test.js` will fail because the error stack DOES contain trace info. The `resetVerbose()` function restores original methods but does NOT reset the `isVerbose` flag. The assertion `err.stack.indexOf(invalid_sql) === -1` fails, and the Napi::Error from the assertion propagates as an uncatchable C++ exception.
+When `sqlite3.verbose()` has been called globally (setting `isVerbose = true`), the test "Should not add trace info to error when verbose is not called" in `verbose.test.js` will fail because the error stack DOES contain trace info. The `resetVerbose()` function restores original methods but does NOT reset the `isVerbose` flag.
 
 **Workaround**: The `verbose()` idempotency test was placed as the LAST test in `verbose.test.js` to avoid contaminating the "not called" test. Test ordering matters for this file.
 
-### Root cause
+### Root cause (historical)
 
-These are C++ exceptions thrown via `Napi::Error` that propagate through the N-API boundary. JavaScript `try/catch` only catches JavaScript exceptions. When a C++ exception reaches the N-API boundary without being caught by a `Napi::TryCatch` block on the C++ side, it triggers `std::terminate()` which calls `abort()`.
+With `NAPI_CPP_EXCEPTIONS` enabled, `Napi::Error` was thrown as a C++ exception. The `TRY_CATCH_CALL` macro caught it and re-threw with `throw;`, but from within async `Work_After*` callbacks where there was no C++ catch handler on the stack → `std::terminate()` → `abort()`. Additionally, `Backup::GetRetryErrors()` crashed on an uninitialized `Napi::Reference<Array>`.
 
-### Design implications
+### Changes made
 
-1. **Promise wrappers must guard against invalid states** before calling native methods, since native errors cannot be caught and converted to rejected promises
-2. **Test coverage for error paths** in native code must use mocks/stubs rather than trying to trigger actual native errors
-3. **Global state changes** (like `verbose()`) must be carefully managed in test suites to avoid cross-test contamination
+1. **`binding.gyp`**: Changed dependency from `node_addon_api_except` to `node_addon_api` (includes `noexcept.gypi` which defines `NODE_ADDON_API_DISABLE_CPP_EXCEPTIONS` and `-fno-exceptions`)
+2. **`src/macros.h`**: Removed `#include <atomic>`, `extern std::atomic<bool> g_env_shutting_down`, and the `try/catch` + `throw;` from `TRY_CATCH_CALL`
+3. **`src/node_sqlite3.cc`**: Removed `#include <atomic>`, `g_env_shutting_down` variable, `EnvCleanupHook`, and `napi_add_env_cleanup_hook` call
+4. **`src/backup.cc`**: Initialize `retryErrors` in `Backup::Backup()` constructor with `[SQLITE_BUSY, SQLITE_LOCKED]`
+5. **`test/uncatchable-exceptions.test.js`**: Integration tests that verify both scenarios now produce catchable JS errors
+6. **`test/uncatchable-scenarios/`**: Child process scripts for crash reproduction
 
 ---
 

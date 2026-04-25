@@ -173,6 +173,14 @@ Backup::Backup(const Napi::CallbackInfo& info) : Napi::ObjectWrap<Backup>(info) 
     baton->filenameIsDest = filenameIsDest.Value();
 
     this->db->Schedule(Work_BeginInitialize, baton);
+
+    // Initialize retryErrors with default values so GetRetryErrors() never
+    // crashes on an empty Napi::Reference, even if the JS wrapper that sets
+    // backup.retryErrors is bypassed (i.e. direct new sqlite3.Backup(...)).
+    Napi::Array defaultRetryErrors = Napi::Array::New(env, 2);
+    defaultRetryErrors.Set(static_cast<uint32_t>(0), Napi::Number::New(env, SQLITE_BUSY));
+    defaultRetryErrors.Set(static_cast<uint32_t>(1), Napi::Number::New(env, SQLITE_LOCKED));
+    retryErrors.Reset(defaultRetryErrors, 1);
 }
 
 void Backup::Work_BeginInitialize(Database::Baton* baton) {
