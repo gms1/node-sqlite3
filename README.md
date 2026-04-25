@@ -12,7 +12,7 @@ Asynchronous, non-blocking [SQLite3](https://sqlite.org/) bindings for [Node.js]
 [![npm version](https://badge.fury.io/js/%40homeofthings%2Fsqlite3.svg)](https://badge.fury.io/js/%40homeofthings%2Fsqlite3)
 ![NPM Downloads](https://img.shields.io/npm/dm/%40homeofthings%2Fsqlite3)
 [![Build Status](https://github.com/gms1/node-sqlite3/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gms1/node-sqlite3/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/gms1/node-sqlite3/graph/badge.svg?token=6H0X94BL3X)](https://codecov.io/gh/gms1/node-sqlite3)
+[![codecov](https://codecov.io/gh/gms1/node-sqlite3/branch/main/graph/badge.svg?token=6H0X94BL3X)](https://codecov.io/gh/gms1/node-sqlite3)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Fmapbox%2Fnode-sqlite3.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Fmapbox%2Fnode-sqlite3?ref=badge_shield)
 ![Node-API v9 Badge](https://raw.githubusercontent.com/nodejs/abi-stable-node/doc/assets/Node-API%20v9%20Badge.svg)
 
