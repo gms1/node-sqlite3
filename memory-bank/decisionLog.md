@@ -17,7 +17,8 @@
 **Key workflow features**:
 - 14-target build matrix (macOS x64/arm64, Linux x64/arm64, Windows x64 x Node 20/22/24)
 - Docker-based musl builds using `tools/BinaryBuilder.Dockerfile` with Alpine 3.20
-- Prebuilt binaries uploaded to GitHub Release on tag events (Node 24 only)
+- Prebuilt binaries uploaded to GitHub Release on tag events (using `PREBUILD_NODE_VERSION`, currently Node 20)
+- CI workflow uses configurable env variables: `PREBUILD_NODE_VERSION` (20), `DEFAULT_NODE_VERSION` (24), `ALPINE_VARIANT` (alpine3.20)
 - npm tarball created via `npm pack` and smoke-tested on 4 platforms
 - ESM smoke tests verify both default and named imports, plus promise API
 - Publish workflow uses OIDC/trusted publishing (no npm token stored in secrets)

@@ -125,11 +125,11 @@ The `NAPI_VERSION` define is set via `napi_build_version` variable in binding.gy
 **How it works**:
 - The `napi_build_version` variable is automatically set by node-gyp based on the target Node.js version
 - For local builds, it's stored in `build/config.gypi` (e.g., `"napi_build_version": "9"`)
-- For prebuilds, `prebuildify` passes it via the `--napi` flag which builds a single NAPI-version-agnostic binary (named `@homeofthings+sqlite3.<libc>.node`). The actual NAPI version used at compile time is determined by the Node.js version running the build (e.g., Node 24 supports NAPI v9). Since NAPI is backward compatible, a binary built with NAPI v9 runs on any Node.js supporting v9 or lower.
+- For prebuilds, `prebuildify` passes it via the `--napi` flag which builds a single NAPI-version-agnostic binary (named `@homeofthings+sqlite3.<libc>.node`). The actual NAPI version used at compile time is determined by the Node.js version running the build. Since NAPI is forward-compatible, prebuilts must be built on the lowest supported Node version to maximize compatibility — building on Node 20 (NAPI v9) produces prebuilts compatible with all Node.js 20+ versions.
 
 ### NAPI Versions Configuration
 
-With `prebuildify --napi`, the NAPI version is auto-detected from the build Node.js version — it is not explicitly configured. The CI builds prebuilds on Node 24 (which supports NAPI v9), producing a single `@homeofthings+sqlite3.glibc.node` binary per platform. The historical `[3, 6]` configuration from the old `binary.napi_versions` package.json field is no longer used.
+With `prebuildify --napi`, the NAPI version is auto-detected from the build Node.js version — it is not explicitly configured. The CI builds prebuilds on Node 20 (which supports NAPI v9), producing a single `@homeofthings+sqlite3.glibc.node` binary per platform. The `PREBUILD_NODE_VERSION` workflow variable controls which Node version is used for prebuilds.
 
 **Why multiple versions?**
 
@@ -146,17 +146,13 @@ NAPI versions are independent of Node.js versions - they represent API feature t
 | v9           | External strings, syntax error creation |
 | v10          | Latin1 external strings                 |
 
-**Backward Compatibility**:
+**Forward Compatibility**:
 
-NAPI is backward compatible - a binary built for NAPI v3 will run on any Node.js that supports v3 or higher. Since Node.js 20.17.0+ supports NAPI v9, it can run binaries built for v3, v6, or v9.
+NAPI is forward-compatible — a binary built with NAPI_VERSION=X requires a Node.js version supporting NAPI vX or higher. Since our prebuilts are built with NAPI v9 on Node 20, they are compatible with all Node.js 20+ versions (which support NAPI v9 or higher).
 
 **Code Conditionals**:
 
 The source code uses `#if NAPI_VERSION < 6` conditionals in [`src/database.h`](../src/database.h) and [`src/database.cc`](../src/database.cc) to provide backward compatibility for NAPI versions below v6. When building for NAPI v6+, these conditionals are disabled.
-
-**Current Configuration Rationale**:
-
-The `[3, 6]` configuration is historical from when this fork supported older Node.js versions. Since the project now requires Node.js >= 20.17.0 (which supports NAPI v9), both prebuilt variants work correctly. Future versions could simplify to a single NAPI version (e.g., v6 or v9).
 
 ## Assert Control
 
@@ -230,7 +226,7 @@ The `install` script runs `node-gyp-build` which tests whether the prebuilt bina
 ## Platform Support
 
 - Node.js >= 20.17.0
-- NAPI: version-agnostic (`@homeofthings+sqlite3.*.node`), built with NAPI v9 on Node 24
+- NAPI: version-agnostic (`@homeofthings+sqlite3.*.node`), built with NAPI v9 on Node 20 (PREBUILD_NODE_VERSION)
 - Platforms: Linux (glibc + musl), macOS, Windows (see CI configuration)
 
 ## Security Hardening
@@ -317,13 +313,21 @@ The project uses three GitHub Actions workflows for continuous integration and r
 
 **Triggers**: `workflow_dispatch`, `pull_request`, push to `main`, tags (`*`)
 
+**Workflow Environment Variables**:
+
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `PREBUILD_NODE_VERSION` | `'20'` | Node version for building prebuilts (NAPI v9, compatible with all Node 20+) |
+| `DEFAULT_NODE_VERSION` | `'24'` | Node version for lint, Codecov, smoke tests, packaging |
+| `ALPINE_VARIANT` | `'alpine3.20'` | Alpine variant for musl Docker builds |
+
 **Jobs**:
 
 1. **verify-version** — On tag events, checks that the tag version matches `package.json` version. Fails the build if they don't match.
 
 2. **create-release** — On tag events, creates a draft GitHub Release using `gh release create --draft`. This ensures the release exists before `build` and `build-musl` jobs try to upload binaries. Skipped for non-tag events (PRs, pushes to main).
 
-3. **lint** — Runs `yarn lint` on `ubuntu-latest` with Node 24.
+3. **lint** — Runs `yarn lint` on `ubuntu-latest` with `DEFAULT_NODE_VERSION`.
 
 4. **build** — Builds and tests native binaries across a 14-target matrix. Depends on `[verify-version, lint, create-release]`.
 
@@ -343,15 +347,15 @@ The project uses three GitHub Actions workflows for continuous integration and r
    - Print binary info (Linux: `ldd`, `nm`, `file`)
    - **Debug async hook stack integrity** (macOS only): Runs `async_hooks_stress.test.js` with `SQLITE3_DEBUG_ASYNC_HOOKS=1`
    - Run tests (`yarn test`)
-   - Upload binaries as commit artifacts (Node 24 only, 7-day retention)
-   - Upload binaries to GitHub Release (Node 24 + tag events only, uses `prebuilds/*/*.node` glob to avoid matching directories)
-   - Upload coverage to Codecov (linux-x64 + Node 24 only)
+   - Upload binaries as commit artifacts (`PREBUILD_NODE_VERSION` only, 7-day retention)
+   - Upload binaries to GitHub Release (`PREBUILD_NODE_VERSION` + tag events only, uses `prebuilds/*/*.node` glob to avoid matching directories)
+   - Upload coverage to Codecov (linux-x64 + `DEFAULT_NODE_VERSION` only)
 
-5. **build-musl** — Builds Linux musl binaries using Docker (`tools/BinaryBuilder.Dockerfile` with Alpine 3.20). Only runs on tag events or `workflow_dispatch`. Depends on `[verify-version, create-release]`. Two targets: `linux/amd64` and `linux/arm64`.
+5. **build-musl** — Builds Linux musl binaries using Docker (`tools/BinaryBuilder.Dockerfile` with `ALPINE_VARIANT`). Only runs on tag events or `workflow_dispatch`. Depends on `[verify-version, create-release]`. Two targets: `linux/amd64` and `linux/arm64`.
 
 6. **package** — Merges all prebuilt binary artifacts, creates npm tarball (`npm pack`), uploads tarball as artifact and to GitHub Release. Runs after `build` and `build-musl` succeed.
 
-7. **test-package** — Calls `.github/workflows/test-npm-package.yml` as a reusable workflow to smoke-test the npm tarball on 4 platforms (linux-x64, linux-arm64, macos-arm64, win32-x64) with Node 22.
+7. **test-package** — Calls `.github/workflows/test-npm-package.yml` as a reusable workflow to smoke-test the npm tarball on 4 platforms (linux-x64, linux-arm64, macos-arm64, win32-x64) with `DEFAULT_NODE_VERSION`.
 
 ### Publish Workflow (`.github/workflows/publish.yml`)
 

@@ -9,9 +9,22 @@ on:
       - '*'
 permissions:
   contents: read
+
 env:
   FORCE_COLOR: 1
+  PREBUILD_NODE_VERSION: '20'
+  DEFAULT_NODE_VERSION: '24'
+  ALPINE_VARIANT: 'alpine3.20'
+
 jobs:
+  env_vars:
+    runs-on: ubuntu-latest
+    outputs:
+      prebuild_node_version: ${{ env.PREBUILD_NODE_VERSION }}
+      default_node_version: ${{ env.DEFAULT_NODE_VERSION }}
+    steps:
+      - run: echo "exposing environment variables for passing to reusable workflows"
+
   verify-version:
     runs-on: ubuntu-latest
     steps:
@@ -65,7 +78,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: ${{ env.DEFAULT_NODE_VERSION }}
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
       - name: Run lint
@@ -219,7 +232,7 @@ jobs:
 
       - name: Upload binaries to commit artifacts
         uses: actions/upload-artifact@v7
-        if: matrix.node == 24
+        if: matrix.node == ${{ env.PREBUILD_NODE_VERSION }}
         with:
           name: prebuilt-binaries-${{ matrix.platform }}
           path: prebuilds/*
@@ -238,13 +251,13 @@ jobs:
               sleep 10
             fi
           done
-        if: matrix.node == 24 && startsWith(github.ref, 'refs/tags/')
+        if: matrix.node == ${{ env.PREBUILD_NODE_VERSION }} && startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
-        if: matrix.node == 24 && matrix.platform == 'linux-x64'
+        if: matrix.node == ${{ env.DEFAULT_NODE_VERSION }} && matrix.platform == 'linux-x64'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: gms1/node-sqlite3
@@ -278,8 +291,8 @@ jobs:
             --file ./tools/BinaryBuilder.Dockerfile \
             --tag sqlite-builder \
             --no-cache \
-            --build-arg VARIANT=alpine3.20 \
-            --build-arg NODE_VERSION=24 \
+            --build-arg VARIANT=${{ env.ALPINE_VARIANT }} \
+            --build-arg NODE_VERSION=${{ env.PREBUILD_NODE_VERSION }} \
             .
           CONTAINER_ID=$(docker create -it sqlite-builder)
           docker cp $CONTAINER_ID:/usr/src/build/prebuilds/ ./prebuilds
@@ -321,7 +334,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: ${{ env.PREBUILD_NODE_VERSION }}
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
@@ -359,11 +372,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   test-package:
-    needs: [package]
+    needs: [package, env_vars]
     if: >-
       !cancelled() &&
       needs.package.result == 'success'
     uses: ./.github/workflows/test-npm-package.yml
     with:
       target_run_id: ${{ github.run_id }}
-      node_version: '22'
+      node_version: ${{ needs.env_vars.outputs.default_node_version }}
