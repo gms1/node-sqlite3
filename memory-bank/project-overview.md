@@ -218,7 +218,18 @@ cd tools/benchmark-drivers && npm install && node index.js
 node tools/benchmark-internal/run.js
 ```
 
+## CI/CD
+
+The project uses three GitHub Actions workflows:
+
+- **CI** (`.github/workflows/ci.yml`) — Build, test, and package across 14 targets (macOS x64/arm64, Linux x64/arm64, Windows x64 x Node 20/22/24) plus musl builds, packaging, and smoke tests
+- **Publish** (`.github/workflows/publish.yml`) — Manual workflow to publish npm tarball from GitHub Release using OIDC/trusted publishing
+- **Test npm Package** (`.github/workflows/test-npm-package.yml`) — Reusable workflow that smoke-tests the npm tarball on 4 platforms with CJS, ESM, and Promise API tests
+
+See [Build System](build-system.md) for detailed CI/CD workflow documentation.
+
 ## Related Files
 
-- [Build System](build-system.md) - Detailed build configuration
-- [Development Workflow](development.md) - Testing and contributing
+- [Build System](build-system.md) - Detailed build configuration and CI/CD workflows
+- [Development Workflow](development.md) - Testing, contributing, and CI/CD pipeline
+- [Decision Log](decisionLog.md) - Technical decisions including CI/CD pipeline design

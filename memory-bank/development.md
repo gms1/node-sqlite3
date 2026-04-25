@@ -361,6 +361,36 @@ yarn test
 5. Run tests: `yarn test`
 6. Submit pull request
 
+## CI/CD
+
+The project uses GitHub Actions for continuous integration and release automation. See [Build System](build-system.md) for detailed CI/CD workflow documentation.
+
+### CI Pipeline
+
+On every PR and push to `main`, the CI workflow:
+
+1. **Verifies version** — Tag version must match `package.json` version
+2. **Lints** — `yarn lint` on ubuntu-latest with Node 24
+3. **Builds & tests** — 14-target matrix across 5 OS/arch combos x 3 Node versions (20, 22, 24)
+4. **Builds musl binaries** — Docker-based Alpine builds for Linux musl (tag events only)
+5. **Packages** — Merges all prebuilt binaries, creates npm tarball
+6. **Smoke-tests** — Tests the npm tarball on 4 platforms with ESM + CJS + Promise API tests
+
+### Release Process
+
+1. `npm version <major|minor|patch>` — bumps version and creates git tag
+2. `git push origin main --tags` — triggers CI to build all platforms and upload binaries to GitHub Release
+3. Review the pre-release on GitHub
+4. Manually trigger **Publish to npm** workflow with the tag
+
+See [Development and Release Guide](../docs/DEVELOP.md) for the full release process.
+
+### Debugging CI Failures
+
+- **macOS async hook stack corruption**: The CI runs `async_hooks_stress.test.js` with `SQLITE3_DEBUG_ASYNC_HOOKS=1` on macOS to capture diagnostic output. See [Issues](issues.md) for root cause analysis.
+- **Musl builds**: Use `tools/BinaryBuilder.Dockerfile` with Alpine 3.20. Check Docker build logs for compilation errors.
+- **Version mismatch**: The `verify-version` job fails if the git tag doesn't match `package.json` version.
+
 ## Common Issues
 
 ### Build Fails on macOS

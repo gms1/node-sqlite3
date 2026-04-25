@@ -309,6 +309,78 @@ Applied to all macOS builds (see `binding.gyp`):
 - [GCC Security Features](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html)
 - [MSVC Security Features](https://docs.microsoft.com/en-us/cpp/build/reference/security-best-practices)
 
+## CI/CD Workflows
+
+The project uses three GitHub Actions workflows for continuous integration and release.
+
+### CI Workflow (`.github/workflows/ci.yml`)
+
+**Triggers**: `workflow_dispatch`, `pull_request`, push to `main`, tags (`*`)
+
+**Jobs**:
+
+1. **verify-version** — On tag events, checks that the tag version matches `package.json` version. Fails the build if they don't match.
+
+2. **create-release** — On tag events, creates a draft GitHub Release using `gh release create --draft`. This ensures the release exists before `build` and `build-musl` jobs try to upload binaries. Skipped for non-tag events (PRs, pushes to main).
+
+3. **lint** — Runs `yarn lint` on `ubuntu-latest` with Node 24.
+
+4. **build** — Builds and tests native binaries across a 14-target matrix. Depends on `[verify-version, lint, create-release]`.
+
+   | OS | Host | Target | Platform | Node Versions |
+   |----|------|--------|----------|---------------|
+   | macos-latest | x64 | x64 | macos-x64 | 20, 22, 24 |
+   | macos-latest | arm64 | arm64 | macos-arm64 | 20, 22, 24 |
+   | ubuntu-24.04 | x64 | x64 | linux-x64 | 20, 22, 24 |
+   | ubuntu-24.04-arm | arm64 | arm64 | linux-arm64 | 20, 22, 24 |
+   | windows-latest | x64 | x64 | win32-x64 | 20, 22, 24 |
+
+   Steps per matrix entry:
+   - Install dependencies (`yarn install --frozen-lockfile --ignore-scripts`)
+   - Node compatibility check (`node tools/semver-check.js`)
+   - Set env vars (`V=1`, `TARGET`, Linux: `CFLAGS`/`CXXFLAGS` with `gcc-preinclude.h`)
+   - Build binaries (`yarn prebuild`)
+   - Print binary info (Linux: `ldd`, `nm`, `file`)
+   - **Debug async hook stack integrity** (macOS only): Runs `async_hooks_stress.test.js` with `SQLITE3_DEBUG_ASYNC_HOOKS=1`
+   - Run tests (`yarn test`)
+   - Upload binaries as commit artifacts (Node 24 only, 7-day retention)
+   - Upload binaries to GitHub Release (Node 24 + tag events only, uses `prebuilds/*/*.node` glob to avoid matching directories)
+   - Upload coverage to Codecov (linux-x64 + Node 24 only)
+
+5. **build-musl** — Builds Linux musl binaries using Docker (`tools/BinaryBuilder.Dockerfile` with Alpine 3.20). Only runs on tag events or `workflow_dispatch`. Depends on `[verify-version, create-release]`. Two targets: `linux/amd64` and `linux/arm64`.
+
+6. **package** — Merges all prebuilt binary artifacts, creates npm tarball (`npm pack`), uploads tarball as artifact and to GitHub Release. Runs after `build` and `build-musl` succeed.
+
+7. **test-package** — Calls `.github/workflows/test-npm-package.yml` as a reusable workflow to smoke-test the npm tarball on 4 platforms (linux-x64, linux-arm64, macos-arm64, win32-x64) with Node 22.
+
+### Publish Workflow (`.github/workflows/publish.yml`)
+
+**Triggers**: `workflow_dispatch` with inputs:
+- `tag` (required) — Release tag to publish (e.g., `v6.4.0`)
+- `npm_tag` (optional) — npm dist-tag (e.g., `next`, `beta`); defaults to `latest`
+
+**Steps**:
+1. Validate tag input
+2. Download tarball from GitHub Release
+3. Publish to npm (uses OIDC/trusted publishing)
+4. Mark GitHub Release as not pre-release
+
+### Test npm Package Workflow (`.github/workflows/test-npm-package.yml`)
+
+**Triggers**: `workflow_call` (reusable) or `workflow_dispatch`
+
+**Inputs**:
+- `target_run_id` (required) — Run ID of upstream CI workflow
+- `node_version` (optional, default `20`) — Node.js version for testing
+
+**Smoke tests** on 4 platforms (linux-x64, linux-arm64, macos-arm64, win32-x64):
+1. Install tarball and verify package contents
+2. Callback API test (`require('@homeofthings/sqlite3')`)
+3. Promise API test (`SqliteDatabase.open()`)
+4. ESM default import test (`import sqlite3 from '@homeofthings/sqlite3'`)
+5. ESM named imports test (`import { Database, OPEN_READWRITE, OPEN_CREATE } from '@homeofthings/sqlite3'`)
+6. ESM promise API test (`import { SqliteDatabase } from '@homeofthings/sqlite3/promise'`)
+
 ## Troubleshooting
 
 ### Build Fails

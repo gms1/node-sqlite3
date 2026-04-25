@@ -50,6 +50,7 @@ This project uses [npm version](https://docs.npmjs.com/cli/v10/commands/npm-vers
    - Check that CI passed (build, test, and smoke tests)
    - Inspect the tarball contents if needed
    - Edit the release notes if desired
+     use "Save as draft", do not use "Publish release" button
 
 4. **Publish to npm** — trigger the `Publish to npm` workflow manually:
    - Go to **Actions → Publish to npm → Run workflow**

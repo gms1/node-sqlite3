@@ -43,6 +43,22 @@ jobs:
             echo "Skipping version verification - not a tag event"
           fi
 
+  create-release:
+    permissions:
+      contents: write
+    needs: [verify-version]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create GitHub Release (draft)
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "Creating draft release for tag: $TAG_NAME"
+          gh release create "$TAG_NAME" --draft --title "$TAG_NAME" --notes "Release $TAG_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -58,7 +74,10 @@ jobs:
   build:
     permissions:
       contents: write
-    needs: [verify-version, lint]
+    needs: [verify-version, lint, create-release]
+    if: >-
+      !cancelled() &&
+      (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -207,7 +226,18 @@ jobs:
           retention-days: 7
 
       - name: Upload binaries to GitHub Release
-        run: gh release upload ${GITHUB_REF#refs/tags/} prebuilds/* --clobber
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          for i in 1 2 3; do
+            if gh release upload "$TAG" prebuilds/*/*.node --clobber; then
+              echo "Upload succeeded on attempt $i"
+              break
+            else
+              echo "Upload failed on attempt $i, retrying in 10s..."
+              sleep 10
+            fi
+          done
         if: matrix.node == 24 && startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
@@ -222,8 +252,11 @@ jobs:
   build-musl:
     permissions:
       contents: write
-    needs: [verify-version]
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    needs: [verify-version, create-release]
+    if: >-
+      !cancelled() &&
+      (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') &&
+      (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
     strategy:
       fail-fast: false
       matrix:
@@ -259,8 +292,18 @@ jobs:
           retention-days: 7
 
       - name: Upload binaries to GitHub Release
+        shell: bash
         run: |
-          gh release upload ${GITHUB_REF#refs/tags/} prebuilds/* --clobber
+          TAG="${GITHUB_REF#refs/tags/}"
+          for i in 1 2 3; do
+            if gh release upload "$TAG" prebuilds/*/*.node --clobber; then
+              echo "Upload succeeded on attempt $i"
+              break
+            else
+              echo "Upload failed on attempt $i, retrying in 10s..."
+              sleep 10
+            fi
+          done
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
@@ -292,12 +335,8 @@ jobs:
       - name: Merge prebuilds into package
         run: |
           mkdir -p prebuilds
-          # Each artifact may contain platform-specific subdirs
-          # Copy all prebuilds from artifacts into prebuilds/
-          cp -r prebuilds-artifacts/*/ prebuilds/ 2>/dev/null || true
-          # Also handle flat structure (files directly in artifact root)
-          cp -r prebuilds-artifacts/ prebuilds/ 2>/dev/null || true
-          # Verify the prebuilds are present
+          cp -r prebuilds-artifacts/* prebuilds/
+          rm -rf prebuilds-artifacts
           find prebuilds -name '*.node' -type f
 
       - name: Create npm tarball

@@ -1,5 +1,29 @@
 # Progress
 
+### CI `gh release upload` glob pattern fix (2026-04-25)
+- Changed `prebuilds/*` to `prebuilds/*/*.node` in both `build` and `build-musl` upload steps
+- Added `shell: bash` to the `build` job's upload step for consistent glob expansion across platforms (especially Windows)
+- The `prebuilds/*` pattern matched directories like `prebuilds/linux-x64/` causing "is a directory" error
+- `prebuilds/*/*.node` correctly matches only `.node` files one level deep
+
+### CI "release not found" fix
+- Added `create-release` job to `.github/workflows/ci.yml` that creates a draft GitHub Release on tag events
+- `build` and `build-musl` jobs now depend on `create-release` to ensure the release exists before uploading
+- `build` job depends on `[verify-version, lint, create-release]` with conditional execution
+- `build-musl` job depends on `[verify-version, create-release]` with conditional execution
+
+### macOS async hook corruption during prebuild (2026-04-25)
+- Same async hook stack corruption bug now observed during `yarn prebuild` (node-gyp rebuild) on macOS x64
+- Stack trace shows `FSReqCallback::Resolve` — Node.js's own `fs` module, not our addon code
+- Confirms the bug is a Node.js/macOS x64 issue, not specific to our test suite
+- Documented in `issues.md`
+
+### Memory Bank CI/CD Documentation Update
+- Added CI/CD Workflows section to `build-system.md` documenting all three GitHub Actions workflows (ci.yml, publish.yml, test-npm-package.yml)
+- Added CI/CD section to `development.md` with CI pipeline summary, release process, and debugging CI failures
+- Added CI/CD Pipeline Design decision entry to `decisionLog.md`
+- Added CI/CD section and updated related file references in `project-overview.md`
+
 ### async hook stack corruption on macOS CI
 - **Status**: Root cause not yet definitively identified. HandleScope fix is next hypothesis to test.
 - Original error: `Error: async hook stack has become corrupted (actual: 573357, expected: 573357)`

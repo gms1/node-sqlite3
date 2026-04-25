@@ -85,6 +85,34 @@ Also seen with Node.js v20.20.2 on macOS x64:
 Error: async hook stack has become corrupted (actual: 315540, expected: 315540)
 ```
 
+### Also observed during `yarn prebuild` (2026-04-25)
+
+The same async hook stack corruption now also occurs during `yarn prebuild` (which runs `node-gyp rebuild` via `prebuildify`) on macOS x64 CI runners:
+
+```
+Error: async hook stack has become corrupted (actual: 71600, expected: 71600)
+----- Native stack trace -----
+ 1: node::AsyncHooks::FailWithCorruptedAsyncStack(double)
+ 2: node::AsyncHooks::pop_async_context(double)
+ 3: node::InternalCallbackScope::Close()
+ 4: node::InternalMakeCallback(...)
+ 5: node::AsyncWrap::MakeCallback(...)
+ 6: node::fs::FSReqCallback::Resolve(v8::Local<v8::Value>)
+ 7: node::fs::AfterNoArgs(uv_fs_s*)
+ 8: node::MakeLibuvRequestCallback<...>::Wrapper(uv_fs_s*)
+ 9: uv__work_done
+10: uv__async_io
+11: uv__io_poll
+12: uv_run
+13: node::SpinEventLoopInternal(node::Environment*)
+14: node::NodeMainInstance::Run()
+15: node::Start(int, char**)
+```
+
+**Key observation**: This crash happens during `node-gyp rebuild` (inside `prebuildify`), NOT during our test suite. The stack trace shows `FSReqCallback::Resolve` and `AfterNoArgs` — this is Node.js's own `fs` module async work completing, not our addon's code. This confirms the bug is in Node.js's async hook stack management on macOS x64, not specific to our addon.
+
+**Impact**: This makes the CI build itself unreliable on macOS x64, not just the tests. The crash is intermittent and non-deterministic.
+
 ### Root Cause Analysis (2026-04-23)
 
 **Status**: Root cause not definitively identified. Extensive static analysis of Node.js source code and Amazon Q analysis completed.
@@ -124,3 +152,18 @@ Error: async hook stack has become corrupted (actual: 315540, expected: 315540)
 3. **Promise hooks** pushing/popping async contexts during the complete callback
 
 **Next steps**: Try HandleScope fix (add `Napi::HandleScope` in `CREATE_WORK`), reorder CI to capture debug output, and if needed use `--no-force-async-hooks-checks` workaround.
+
+---
+
+## CI "release not found" error — FIXED
+
+**Status**: Fixed as of 2026-04-25.
+
+**Problem**: When pushing a new tag, the `gh release upload` step in the `build` and `build-musl` jobs failed with `release not found` because the GitHub Release didn't exist yet. The `gh release upload` command requires the release to already exist.
+
+**Fix**: Added a `create-release` job that runs after `verify-version` and creates a draft GitHub Release using `gh release create --draft`. The `build` and `build-musl` jobs now depend on `create-release` (in addition to `verify-version` and `lint`), ensuring the release exists before any upload attempts.
+
+**Changes**:
+- `.github/workflows/ci.yml`: Added `create-release` job that creates a draft release on tag events
+- `.github/workflows/ci.yml`: `build` job now depends on `[verify-version, lint, create-release]` with `if: !cancelled() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')`
+- `.github/workflows/ci.yml`: `build-musl` job now depends on `[verify-version, create-release]` with similar conditional
