@@ -323,21 +323,24 @@ The project uses three GitHub Actions workflows for continuous integration and r
 
 **Jobs**:
 
-1. **verify-version** — On tag events, checks that the tag version matches `package.json` version. Fails the build if they don't match.
+1. **env_vars** — Exposes workflow env variables as job outputs for use in reusable workflow calls (`needs.env_vars.outputs.*`). This is needed because the `env` context is not available in `with:` blocks of reusable workflows.
 
-2. **create-release** — On tag events, creates a draft GitHub Release using `gh release create --draft`. This ensures the release exists before `build` and `build-musl` jobs try to upload binaries. Skipped for non-tag events (PRs, pushes to main).
+2. **verify-version** — On tag events, checks that the tag version matches `package.json` version. Fails the build if they don't match.
 
-3. **lint** — Runs `yarn lint` on `ubuntu-latest` with `DEFAULT_NODE_VERSION`.
+3. **create-release** — On tag events, creates a draft GitHub Release using `gh release create --draft`. This ensures the release exists before `build` and `build-musl` jobs try to upload binaries. Skipped for non-tag events (PRs, pushes to main).
 
-4. **build** — Builds and tests native binaries across a 14-target matrix. Depends on `[verify-version, lint, create-release]`.
+4. **lint** — Runs `yarn lint` on `ubuntu-latest` with `DEFAULT_NODE_VERSION`.
+
+5. **build** — Builds and tests native binaries across a 12-target matrix. Depends on `[verify-version, lint, create-release]`.
 
    | OS | Host | Target | Platform | Node Versions |
    |----|------|--------|----------|---------------|
-   | macos-latest | x64 | x64 | macos-x64 | 20, 22, 24 |
-   | macos-latest | arm64 | arm64 | macos-arm64 | 20, 22, 24 |
-   | ubuntu-24.04 | x64 | x64 | linux-x64 | 20, 22, 24 |
-   | ubuntu-24.04-arm | arm64 | arm64 | linux-arm64 | 20, 22, 24 |
-   | windows-latest | x64 | x64 | win32-x64 | 20, 22, 24 |
+   | macos-latest | x64 | x64 | macos-x64 | 20, 24 |
+   | macos-latest | arm64 | arm64 | macos-arm64 | 20, 24 |
+   | ubuntu-24.04 | x64 | x64 | linux-x64 | 20, 24 |
+   | ubuntu-24.04-arm | arm64 | arm64 | linux-arm64 | 20, 24 |
+   | windows-latest | x64 | x64 | win32-x64 | 20, 24 |
+   | windows-11-arm | arm64 | arm64 | win32-arm64 | 20, 24 |
 
    Steps per matrix entry:
    - Install dependencies (`yarn install --frozen-lockfile --ignore-scripts`)
@@ -351,11 +354,11 @@ The project uses three GitHub Actions workflows for continuous integration and r
    - Upload binaries to GitHub Release (`PREBUILD_NODE_VERSION` + tag events only, uses `prebuilds/*/*.node` glob to avoid matching directories)
    - Upload coverage to Codecov (linux-x64 + `DEFAULT_NODE_VERSION` only)
 
-5. **build-musl** — Builds Linux musl binaries using Docker (`tools/BinaryBuilder.Dockerfile` with `ALPINE_VARIANT`). Only runs on tag events or `workflow_dispatch`. Depends on `[verify-version, create-release]`. Two targets: `linux/amd64` and `linux/arm64`.
+6. **build-musl** — Builds Linux musl binaries using Docker (`tools/BinaryBuilder.Dockerfile` with `ALPINE_VARIANT`). Only runs on tag events or `workflow_dispatch`. Depends on `[verify-version, create-release]`. Two targets: `linux/amd64` and `linux/arm64`.
 
-6. **package** — Merges all prebuilt binary artifacts, creates npm tarball (`npm pack`), uploads tarball as artifact and to GitHub Release. Runs after `build` and `build-musl` succeed.
+7. **package** — Merges all prebuilt binary artifacts, creates npm tarball (`npm pack`), uploads tarball as artifact and to GitHub Release. Runs after `build` and `build-musl` succeed.
 
-7. **test-package** — Calls `.github/workflows/test-npm-package.yml` as a reusable workflow to smoke-test the npm tarball on 4 platforms (linux-x64, linux-arm64, macos-arm64, win32-x64) with `DEFAULT_NODE_VERSION`.
+8. **test-package** — Calls `.github/workflows/test-npm-package.yml` as a reusable workflow to smoke-test the npm tarball on 4 platforms (linux-x64, linux-arm64, macos-arm64, win32-x64) with `DEFAULT_NODE_VERSION`. Depends on `[package, env_vars]` to pass the node version via `needs.env_vars.outputs.default_node_version`.
 
 ### Publish Workflow (`.github/workflows/publish.yml`)
 

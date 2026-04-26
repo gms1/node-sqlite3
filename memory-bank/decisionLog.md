@@ -7,7 +7,7 @@
 **Decision**: Use three GitHub Actions workflows for CI/CD: `ci.yml` (build, test, package), `publish.yml` (npm publish), and `test-npm-package.yml` (reusable smoke tests).
 
 **Rationale**:
-- `ci.yml` handles the full build matrix (14 targets across 5 OS/arch combos x 3 Node versions) plus musl builds, packaging, and smoke testing
+- `ci.yml` handles the full build matrix (12 targets across 6 OS/arch combos x 2 Node versions) plus musl builds, packaging, and smoke testing
 - `test-npm-package.yml` is a reusable workflow (`workflow_call`) to avoid duplicating smoke test logic between CI and manual dispatch
 - `publish.yml` is a separate manual workflow for npm publishing, using OIDC/trusted publishing for security
 - The `verify-version` job ensures tag versions match `package.json` before proceeding with releases
@@ -15,10 +15,9 @@
 - Code coverage is uploaded to Codecov from the linux-x64/Node-24 matrix entry only
 
 **Key workflow features**:
-- 14-target build matrix (macOS x64/arm64, Linux x64/arm64, Windows x64 x Node 20/22/24)
+- 12-target build matrix (macOS x64/arm64, Linux x64/arm64, Windows x64/arm64 x Node 20/24)
 - Docker-based musl builds using `tools/BinaryBuilder.Dockerfile` with Alpine 3.20
-- Prebuilt binaries uploaded to GitHub Release on tag events (using `PREBUILD_NODE_VERSION`, currently Node 20)
-- CI workflow uses configurable env variables: `PREBUILD_NODE_VERSION` (20), `DEFAULT_NODE_VERSION` (24), `ALPINE_VARIANT` (alpine3.20)
+- Prebuilt binaries uploaded to GitHub Release on tag events
 - npm tarball created via `npm pack` and smoke-tested on 4 platforms
 - ESM smoke tests verify both default and named imports, plus promise API
 - Publish workflow uses OIDC/trusted publishing (no npm token stored in secrets)
