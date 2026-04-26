@@ -54,6 +54,7 @@ Prebuilt binaries are bundled inside the npm package using [`prebuildify`](https
 * `linux-arm64` (musl)
 * `linux-x64` (musl)
 * `win32-x64`
+* `win32-arm64`
 
 Support for other platforms and architectures may be added in the future if CI supports building on them.
 

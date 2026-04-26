@@ -371,7 +371,7 @@ On every PR and push to `main`, the CI workflow:
 
 1. **Verifies version** — Tag version must match `package.json` version
 2. **Lints** — `yarn lint` on ubuntu-latest with Node 24
-3. **Builds & tests** — 14-target matrix across 5 OS/arch combos x 3 Node versions (20, 22, 24)
+3. **Builds & tests** — 12-target matrix across 6 OS/arch combos x 2 Node versions (20, 24)
 4. **Builds musl binaries** — Docker-based Alpine builds for Linux musl (tag events only)
 5. **Packages** — Merges all prebuilt binaries, creates npm tarball
 6. **Smoke-tests** — Tests the npm tarball on 4 platforms with ESM + CJS + Promise API tests

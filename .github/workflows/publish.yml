@@ -19,6 +19,7 @@ permissions:
 
 env:
   FORCE_COLOR: 1
+  DEFAULT_NODE_VERSION: '24'
 
 jobs:
   publish:
@@ -36,7 +37,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: ${{ env.DEFAULT_NODE_VERSION }}
           registry-url: https://registry.npmjs.org
 
       - name: Download tarball from GitHub Release
