@@ -1,0 +1,80 @@
+name: Test Electron package
+on:
+  workflow_call:
+    inputs:
+      target_run_id:
+        description: 'The Run ID of the upstream CI workflow'
+        required: true
+        type: string
+      electron_version:
+        description: 'Electron version to test with'
+        required: false
+        default: '35'
+        type: string
+  workflow_dispatch:
+    inputs:
+      target_run_id:
+        description: 'The Run ID of the upstream CI workflow'
+        required: true
+        type: string
+      electron_version:
+        description: 'Electron version to test with'
+        required: false
+        default: '35'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test-electron:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: win32-x64
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }} (electron=${{ inputs.electron_version || '35' }})
+    steps:
+      - name: Download artifact from specific run
+        uses: actions/download-artifact@v5
+        with:
+          run-id: ${{ inputs.target_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: npm-package-tarball
+          path: ./downloads
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install Electron
+        shell: bash
+        run: |
+          npm install electron@${{ inputs.electron_version || '35' }} --save-dev
+
+      - name: Install tarball and verify
+        shell: bash
+        run: |
+          TARBALL="$(pwd)/downloads/$(ls downloads/*.tgz | head -1 | xargs basename)"
+          echo "Installing tarball: $TARBALL"
+          mkdir test-project && cd test-project
+          npm init -y
+          npm install "$TARBALL"
+          echo "--- Installed package contents ---"
+          ls -la node_modules/@homeofthings/sqlite3/ 2>/dev/null || dir node_modules\\@homeofthings\\sqlite3\\ 2>/dev/null || true
+          echo "--- Prebuilds ---"
+          find node_modules/@homeofthings/sqlite3/prebuilds -name "*.node" -type f 2>/dev/null || true
+
+      # TODO: Add Electron smoke tests (callback API, promise API, ESM)
+      # - name: Smoke test - Electron callback API
+      # - name: Smoke test - Electron promise API
+      # - name: Smoke test - Electron ESM default import
+      # - name: Smoke test - Electron ESM named imports
+      # - name: Smoke test - Electron ESM promise API
