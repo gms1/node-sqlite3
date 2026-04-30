@@ -11,6 +11,11 @@ on:
         required: false
         default: '35'
         type: string
+      node_version:
+        description: 'Node.js version for npm/setup'
+        required: false
+        default: '20'
+        type: string
   workflow_dispatch:
     inputs:
       target_run_id:
@@ -21,6 +26,11 @@ on:
         description: 'Electron version to test with'
         required: false
         default: '35'
+        type: string
+      node_version:
+        description: 'Node.js version for npm/setup'
+        required: false
+        default: '20'
         type: string
 
 permissions:
@@ -34,10 +44,14 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
           - os: macos-latest
             platform: macos-arm64
           - os: windows-latest
             platform: win32-x64
+          - os: windows-11-arm
+            platform: win32-arm64
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }} (electron=${{ inputs.electron_version || '35' }})
     steps:
@@ -52,14 +66,22 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: ${{ inputs.node_version || '20' }}
 
-      - name: Install Electron
+      - name: Install xvfb (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y xvfb
+
+      - name: Set Electron runner command
         shell: bash
         run: |
-          npm install electron@${{ inputs.electron_version || '35' }} --save-dev
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            echo "ELECTRON_RUN=xvfb-run npx electron --no-sandbox" >> $GITHUB_ENV
+          else
+            echo "ELECTRON_RUN=npx electron --no-sandbox" >> $GITHUB_ENV
+          fi
 
-      - name: Install tarball and verify
+      - name: Install tarball and Electron
         shell: bash
         run: |
           TARBALL="$(pwd)/downloads/$(ls downloads/*.tgz | head -1 | xargs basename)"
@@ -67,14 +89,145 @@ jobs:
           mkdir test-project && cd test-project
           npm init -y
           npm install "$TARBALL"
+          npm install --save-dev electron@${{ inputs.electron_version || '35' }}
           echo "--- Installed package contents ---"
           ls -la node_modules/@homeofthings/sqlite3/ 2>/dev/null || dir node_modules\\@homeofthings\\sqlite3\\ 2>/dev/null || true
           echo "--- Prebuilds ---"
           find node_modules/@homeofthings/sqlite3/prebuilds -name "*.node" -type f 2>/dev/null || true
 
-      # TODO: Add Electron smoke tests (callback API, promise API, ESM)
-      # - name: Smoke test - Electron callback API
-      # - name: Smoke test - Electron promise API
-      # - name: Smoke test - Electron ESM default import
-      # - name: Smoke test - Electron ESM named imports
-      # - name: Smoke test - Electron ESM promise API
+      - name: Smoke test - Electron callback API
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          cd test-project
+          cat > test-callback.js << 'SCRIPT'
+          const { app } = require('electron');
+          const sqlite3 = require('@homeofthings/sqlite3');
+
+          function fail(err) { console.error('Callback API failed:', err); app.exit(1); }
+
+          app.whenReady().then(() => {
+            console.log('Electron version:', process.versions.electron);
+            console.log('sqlite3 version:', sqlite3.VERSION);
+            const db = new sqlite3.Database(':memory:');
+            db.serialize(() => {
+              db.run('CREATE TABLE test (id INT, name TEXT)');
+              db.run("INSERT INTO test VALUES (1, 'hello')");
+              db.get('SELECT * FROM test', (err, row) => {
+                if (err) return fail(err);
+                console.log('Callback API result:', JSON.stringify(row));
+                db.close((err) => { if (err) return fail(err); app.exit(0); });
+              });
+            });
+          }).catch(fail);
+          SCRIPT
+          $ELECTRON_RUN test-callback.js
+
+      - name: Smoke test - Electron promise API
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          cd test-project
+          cat > test-promise.js << 'SCRIPT'
+          const { app } = require('electron');
+          const { SqliteDatabase } = require('@homeofthings/sqlite3/promise');
+
+          app.whenReady().then(() => {
+            return SqliteDatabase.open(':memory:');
+          }).then(db => {
+            return db.run('CREATE TABLE test (id INT, name TEXT)')
+              .then(() => db.run("INSERT INTO test VALUES (1, 'hello')"))
+              .then(() => db.get('SELECT * FROM test'))
+              .then(row => {
+                console.log('Promise API result:', JSON.stringify(row));
+                return db.close();
+              });
+          }).then(() => app.exit(0)).catch(err => {
+            console.error('Promise API failed:', err); app.exit(1);
+          });
+          SCRIPT
+          $ELECTRON_RUN test-promise.js
+
+      - name: Smoke test - Electron ESM default import
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          cd test-project
+          cat > test-esm-default.js << 'SCRIPT'
+          const { app } = require('electron');
+
+          function fail(err) { console.error('ESM default import failed:', err); app.exit(1); }
+
+          app.whenReady().then(() => {
+            return import('@homeofthings/sqlite3');
+          }).then(sqlite3 => {
+            console.log('ESM default: sqlite3 version:', sqlite3.default.VERSION);
+            const db = new sqlite3.default.Database(':memory:');
+            db.serialize(() => {
+              db.run('CREATE TABLE test (id INT, name TEXT)');
+              db.run("INSERT INTO test VALUES (1, 'hello')");
+              db.get('SELECT * FROM test', (err, row) => {
+                if (err) return fail(err);
+                console.log('ESM default import result:', JSON.stringify(row));
+                db.close((err) => { if (err) return fail(err); app.exit(0); });
+              });
+            });
+          }).catch(fail);
+          SCRIPT
+          $ELECTRON_RUN test-esm-default.js
+
+      - name: Smoke test - Electron ESM named imports
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          cd test-project
+          cat > test-esm-named.js << 'SCRIPT'
+          const { app } = require('electron');
+
+          function fail(err) { console.error('ESM named import failed:', err); app.exit(1); }
+
+          app.whenReady().then(() => {
+            return import('@homeofthings/sqlite3');
+          }).then(sqlite3 => {
+            const { Database, OPEN_READWRITE, OPEN_CREATE } = sqlite3;
+            console.log('ESM named: OPEN_READWRITE=', OPEN_READWRITE);
+            const db = new Database(':memory:');
+            db.serialize(() => {
+              db.run('CREATE TABLE test (id INT, name TEXT)');
+              db.run("INSERT INTO test VALUES (2, 'world')");
+              db.get('SELECT * FROM test', (err, row) => {
+                if (err) return fail(err);
+                console.log('ESM named import result:', JSON.stringify(row));
+                db.close((err) => { if (err) return fail(err); app.exit(0); });
+              });
+            });
+          }).catch(fail);
+          SCRIPT
+          $ELECTRON_RUN test-esm-named.js
+
+      - name: Smoke test - Electron ESM promise API
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          cd test-project
+          cat > test-esm-promise.js << 'SCRIPT'
+          const { app } = require('electron');
+
+          app.whenReady().then(() => {
+            return import('@homeofthings/sqlite3/promise');
+          }).then(({ SqliteDatabase }) => {
+            return SqliteDatabase.open(':memory:')
+              .then(db => {
+                return db.run('CREATE TABLE test (id INT, name TEXT)')
+                  .then(() => db.run("INSERT INTO test VALUES (3, 'esm')"))
+                  .then(() => db.get('SELECT * FROM test'))
+                  .then(row => {
+                    console.log('ESM promise API result:', JSON.stringify(row));
+                    return db.close();
+                  });
+              });
+          }).then(() => app.exit(0)).catch(err => {
+            console.error('ESM promise API failed:', err); app.exit(1);
+          });
+          SCRIPT
+          $ELECTRON_RUN test-esm-promise.js
