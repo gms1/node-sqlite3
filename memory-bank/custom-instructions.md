@@ -2,10 +2,28 @@
 
 > These instructions are for AI agents (like Roo/Cline) working on this project.
 
+## Notes
+
+These instructions apply to all future sessions working in this project.
+
+## Communication
+
+- **Ask before choosing** - When there are multiple valid approaches to solve a problem, present the options and ask which one the user prefers rather than implementing one arbitrarily.
+  Don't make decisions or implement solutions without user confirmation when there are alternatives available.
+
+- **Wait for choices** - When presenting multiple options or approaches, wait for the user to choose before implementing anything.
+
+- **Wait for results** - When asking the user to check something or run a command, wait for the response before proceeding with next steps.
+
+- **Answering user questions** 
+  - Try to keep your answer short and do not embellish your answer with assessments based on assumptions. 
+  - Wait for feedback before proceeding with other things or asking questions about other things.
+  - Do not change the subject/topic.
+
 ## Command Execution
 
-- Do not prefix commands with `cd /home/gms/gms/projects/hot/node-sqlite3 &&` when the command should run in the current workspace directory
-- Use `yarn test`, `yarn lint` instead of npm run scripts (e.g., avoid `npm run test`, use `yarn test` instead)
+- Do not prefix commands unnecessarily with `cd /path/to/current/working/directory &&` when the command should run in the current working directory
+- Prefer `yarn` over `npm`
 
 ## Plans
 
@@ -14,10 +32,6 @@ Never refer to a plan (files in `plans/`) from any memory bank file except `acti
 Plans are temporary: once implemented, the related active context is moved to `progress.md`. 
 
 The client may then review all the changes and remove the plan file, so all references to plans in `progress.md`, `decisionLog.md`, `development.md`, or `project-overview.md` would become stale/broken
-
-## Notes
-
-These instructions apply to all future sessions working in this project.
 
 ## Memory Bank
 
