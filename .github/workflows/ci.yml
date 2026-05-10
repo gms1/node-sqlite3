@@ -217,7 +217,7 @@ jobs:
 
       - name: Upload binaries to commit artifacts
         uses: actions/upload-artifact@v7
-        if: matrix.node == ${{ env.PREBUILD_NODE_VERSION }}
+        if: matrix.node == env.PREBUILD_NODE_VERSION
         with:
           name: prebuilt-binaries-${{ matrix.platform }}
           path: prebuilds/*
@@ -236,13 +236,13 @@ jobs:
               sleep 10
             fi
           done
-        if: matrix.node == ${{ env.PREBUILD_NODE_VERSION }} && startsWith(github.ref, 'refs/tags/')
+        if: matrix.node == env.PREBUILD_NODE_VERSION && startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
-        if: matrix.node == ${{ env.DEFAULT_NODE_VERSION }} && matrix.platform == 'linux-x64'
+        if: matrix.node == env.DEFAULT_NODE_VERSION && matrix.platform == 'linux-x64'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: gms1/node-sqlite3
