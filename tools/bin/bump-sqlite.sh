@@ -746,7 +746,7 @@ step17_push() {
         return
     fi
 
-    git push origin "$BRANCH_NAME"
+    git push -u origin "$BRANCH_NAME"
 
     log "Pushed to origin/${BRANCH_NAME}"
 }
