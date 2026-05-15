@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Node.js >= 20.17.0
+- Node.js >= 22.1.0
 - Python 3 (for node-gyp)
 - C++ compiler (gcc, clang, or MSVC)
 - yarn or npm
@@ -370,8 +370,8 @@ The project uses GitHub Actions for continuous integration and release automatio
 On every PR and push to `main`, the CI workflow:
 
 1. **Verifies version** — Tag version must match `package.json` version
-2. **Lints** — `yarn lint` on ubuntu-latest with Node 24
-3. **Builds & tests** — 12-target matrix across 6 OS/arch combos x 2 Node versions (20, 24)
+2. **Lints** — `yarn lint` on ubuntu-latest with Node 26
+3. **Builds & tests** — 12-target matrix across 6 OS/arch combos x 2 Node versions (22, 26)
 4. **Builds musl binaries** — Docker-based Alpine builds for Linux musl (tag events only)
 5. **Packages** — Merges all prebuilt binaries, creates npm tarball
 6. **Smoke-tests** — Tests the npm tarball on 4 platforms with ESM + CJS + Promise API tests

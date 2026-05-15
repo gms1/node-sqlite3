@@ -30,7 +30,7 @@ Despite lower raw throughput, async drivers provide **Non-Blocking I/O**, by pre
 
 ## Requirements
 
-- **Node.js**: v20.17.0 or later (for N-API compatibility)
+- **Node.js**: v22.1.0 or later (for N-API compatibility)
 - **For `node:sqlite`**: Node.js v22.6.0+ (experimental) or v22.12.0+ (stable)
 
 ## Installation

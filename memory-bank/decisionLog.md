@@ -12,10 +12,10 @@
 - `publish.yml` is a separate manual workflow for npm publishing, using OIDC/trusted publishing for security
 - The `verify-version` job ensures tag versions match `package.json` before proceeding with releases
 - macOS builds include a debug step for async hook stack integrity (`SQLITE3_DEBUG_ASYNC_HOOKS=1`)
-- Code coverage is uploaded to Codecov from the linux-x64/Node-24 matrix entry only
+- Code coverage is uploaded to Codecov from the linux-x64/Node-26 matrix entry only
 
 **Key workflow features**:
-- 12-target build matrix (macOS x64/arm64, Linux x64/arm64, Windows x64/arm64 x Node 20/24)
+- 12-target build matrix (macOS x64/arm64, Linux x64/arm64, Windows x64/arm64 x Node 22/26)
 - Docker-based musl builds using `tools/BinaryBuilder.Dockerfile` with Alpine 3.20
 - Prebuilt binaries uploaded to GitHub Release on tag events
 - npm tarball created via `npm pack` and smoke-tested on 4 platforms
@@ -307,7 +307,7 @@ if (locked && pending == before_pending) {
 
 ### Node.js Version Requirement
 
-**Decision**: Require Node.js >= 20.17.0
+**Decision**: Require Node.js >= 22.1.0
 
 **Rationale**: 
 - Modern NAPI support
