@@ -131,7 +131,6 @@ import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
 ### Runtime
 - `node-addon-api`: ^8.7.0 - C++ NAPI wrapper
 - `node-gyp-build`: ^4.8.4 - Native addon binary loader (resolves prebuilt or falls back to source build)
-- `tar`: ^7.5.13 - Tarball handling
 
 ### Development
 - `mocha`: 11.7.5 - Test framework

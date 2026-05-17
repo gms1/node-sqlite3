@@ -50,7 +50,7 @@
 - CJS: `lib/sqlite3.js` → `lib/sqlite3-callback.js` + `lib/sqlite3-binding.js`
 - ESM: `lib/sqlite3.mjs` → `lib/promise/` (SqliteDatabase, SqliteStatement, SqliteBackup)
 - TypeScript definitions updated
-- All 281 tests passing (including ESM tests)
+- All 339 tests passing (277 CJS + 62 ESM)
 
 ### SQLite Version Bump Script
 - `tools/bin/bump-sqlite.sh` downloads amalgamation zip, extracts, commits
@@ -95,4 +95,4 @@
 
 ### Testing Infrastructure
 - Mocha test framework with nyc coverage
-- 281 tests passing (including ESM tests)
+- 339 tests passing (277 CJS + 62 ESM)

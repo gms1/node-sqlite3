@@ -56,6 +56,11 @@ function extractZip(zipPath, destDir) {
 
         if (outFileName && !outFileName.endsWith('/')) {
             const outPath = path.join(destDir, outFileName);
+          const resolvedDest = path.resolve(destDir);
+          const resolvedOut = path.resolve(outPath);
+          if (!resolvedOut.startsWith(resolvedDest + path.sep)) {
+            throw new Error(`Zip Slip detected: ${outFileName} resolves outside destination directory`);
+          }
             const dir = path.dirname(outPath);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });

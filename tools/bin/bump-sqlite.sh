@@ -428,7 +428,7 @@ step9_download_and_replace() {
         log_dry "Would download ${new_zip} from sqlite.org"
         log_dry "Would git rm deps/${old_zip} from deps/"
         log_dry "Would place deps/${new_zip} in deps/"
-        log_dry "Would remove old extracted dir deps/${old_dir}/ (if present)"
+        log_dry "Would remove old extracted dir build/${old_dir}/ (if present)"
         return
     fi
 
@@ -547,9 +547,9 @@ step9_download_and_replace() {
         log "WARNING: Old zip not found: ${DEPS_DIR}/${old_zip}"
     fi
 
-    # Clean up old extracted directory from disk if present
+    # Clean up old extracted directory from build output if present
     if [[ -d "${PROJECT_ROOT}/build/${old_dir}" ]]; then
-        log "Removing old extracted directory: ${old_dir}"
+        log "Removing old extracted directory from build: ${old_dir}"
         rm -rf "${PROJECT_ROOT}/build/${old_dir}"
     fi
 
@@ -648,7 +648,7 @@ step12_check_other_changes() {
     echo ""
     echo "Please review the changelog for potential manual changes in the following files:"
     echo "  - deps/sqlite3.gyp (compile flags, defines, new extensions)"
-    echo "  - deps/sqlite-amalgamation-*/ (amalgamation source files)"
+    echo "  - deps/sqlite-amalgamation-*.zip (amalgamation archive)"
     echo ""
 
     if [[ "$DRY_RUN" == true ]]; then
