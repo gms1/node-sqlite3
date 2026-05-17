@@ -19,7 +19,7 @@ permissions:
 
 env:
   FORCE_COLOR: 1
-  DEFAULT_NODE_VERSION: '24'
+  DEFAULT_NODE_VERSION: '26'
 
 jobs:
   publish:

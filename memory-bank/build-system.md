@@ -125,11 +125,11 @@ The `NAPI_VERSION` define is set via `napi_build_version` variable in binding.gy
 **How it works**:
 - The `napi_build_version` variable is automatically set by node-gyp based on the target Node.js version
 - For local builds, it's stored in `build/config.gypi` (e.g., `"napi_build_version": "9"`)
-- For prebuilds, `prebuildify` passes it via the `--napi` flag which builds a single NAPI-version-agnostic binary (named `@homeofthings+sqlite3.<libc>.node`). The actual NAPI version used at compile time is determined by the Node.js version running the build. Since NAPI is forward-compatible, prebuilts must be built on the lowest supported Node version to maximize compatibility — building on Node 20 (NAPI v9) produces prebuilts compatible with all Node.js 20+ versions.
+- For prebuilds, `prebuildify` passes it via the `--napi` flag which builds a single NAPI-version-agnostic binary (named `@homeofthings+sqlite3.<libc>.node`). The actual NAPI version used at compile time is determined by the Node.js version running the build. Since NAPI is forward-compatible, prebuilts must be built on the lowest supported Node version to maximize compatibility — building on Node 22 (NAPI v9) produces prebuilts compatible with all Node.js 22+ versions.
 
 ### NAPI Versions Configuration
 
-With `prebuildify --napi`, the NAPI version is auto-detected from the build Node.js version — it is not explicitly configured. The CI builds prebuilds on Node 20 (which supports NAPI v9), producing a single `@homeofthings+sqlite3.glibc.node` binary per platform. The `PREBUILD_NODE_VERSION` workflow variable controls which Node version is used for prebuilds.
+With `prebuildify --napi`, the NAPI version is auto-detected from the build Node.js version — it is not explicitly configured. The CI builds prebuilds on Node 22 (which supports NAPI v9), producing a single `@homeofthings+sqlite3.glibc.node` binary per platform. The `PREBUILD_NODE_VERSION` workflow variable controls which Node version is used for prebuilds.
 
 **Why multiple versions?**
 
@@ -148,7 +148,7 @@ NAPI versions are independent of Node.js versions - they represent API feature t
 
 **Forward Compatibility**:
 
-NAPI is forward-compatible — a binary built with NAPI_VERSION=X requires a Node.js version supporting NAPI vX or higher. Since our prebuilts are built with NAPI v9 on Node 20, they are compatible with all Node.js 20+ versions (which support NAPI v9 or higher).
+NAPI is forward-compatible — a binary built with NAPI_VERSION=X requires a Node.js version supporting NAPI vX or higher. Since our prebuilts are built with NAPI v9 on Node 22, they are compatible with all Node.js 22+ versions (which support NAPI v9 or higher).
 
 **Code Conditionals**:
 
@@ -225,8 +225,8 @@ The `install` script runs `node-gyp-build` which tests whether the prebuilt bina
 
 ## Platform Support
 
-- Node.js >= 20.17.0
-- NAPI: version-agnostic (`@homeofthings+sqlite3.*.node`), built with NAPI v9 on Node 20 (PREBUILD_NODE_VERSION)
+- Node.js >= 22.1.0
+- NAPI: version-agnostic (`@homeofthings+sqlite3.*.node`), built with NAPI v9 on Node 22 (PREBUILD_NODE_VERSION)
 - Platforms: Linux (glibc + musl), macOS, Windows (see CI configuration)
 
 ## Security Hardening
@@ -317,8 +317,8 @@ The project uses three GitHub Actions workflows for continuous integration and r
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
-| `PREBUILD_NODE_VERSION` | `'20'` | Node version for building prebuilts (NAPI v9, compatible with all Node 20+) |
-| `DEFAULT_NODE_VERSION` | `'24'` | Node version for lint, Codecov, smoke tests, packaging |
+| `PREBUILD_NODE_VERSION` | `'22'` | Node version for building prebuilts (NAPI v9, compatible with all Node 22+) |
+| `DEFAULT_NODE_VERSION` | `'26'` | Node version for lint, Codecov, smoke tests, packaging |
 | `ALPINE_VARIANT` | `'alpine3.20'` | Alpine variant for musl Docker builds |
 
 **Jobs**:
@@ -335,12 +335,12 @@ The project uses three GitHub Actions workflows for continuous integration and r
 
    | OS | Host | Target | Platform | Node Versions |
    |----|------|--------|----------|---------------|
-   | macos-latest | x64 | x64 | macos-x64 | 20, 24 |
-   | macos-latest | arm64 | arm64 | macos-arm64 | 20, 24 |
-   | ubuntu-24.04 | x64 | x64 | linux-x64 | 20, 24 |
-   | ubuntu-24.04-arm | arm64 | arm64 | linux-arm64 | 20, 24 |
-   | windows-latest | x64 | x64 | win32-x64 | 20, 24 |
-   | windows-11-arm | arm64 | arm64 | win32-arm64 | 20, 24 |
+   | macos-latest | x64 | x64 | macos-x64 | 22, 26 |
+   | macos-latest | arm64 | arm64 | macos-arm64 | 22, 26 |
+   | ubuntu-24.04 | x64 | x64 | linux-x64 | 22, 26 |
+   | ubuntu-24.04-arm | arm64 | arm64 | linux-arm64 | 22, 26 |
+   | windows-latest | x64 | x64 | win32-x64 | 22, 26 |
+   | windows-11-arm | arm64 | arm64 | win32-arm64 | 22, 26 |
 
    Steps per matrix entry:
    - Install dependencies (`yarn install --frozen-lockfile --ignore-scripts`)
@@ -378,7 +378,7 @@ The project uses three GitHub Actions workflows for continuous integration and r
 
 **Inputs**:
 - `target_run_id` (required) — Run ID of upstream CI workflow
-- `node_version` (optional, default `20`) — Node.js version for testing
+- `node_version` (optional, default `26`) — Node.js version for testing
 
 **Smoke tests** on 4 platforms (linux-x64, linux-arm64, macos-arm64, win32-x64):
 1. Install tarball and verify package contents
@@ -392,7 +392,7 @@ The project uses three GitHub Actions workflows for continuous integration and r
 
 ### Build Fails
 
-1. Check Node.js version: `node --version` (must be >= 20.17.0)
+1. Check Node.js version: `node --version` (must be >= 22.1.0)
 2. Check node-gyp version: `node-gyp --version`
 3. Try clean rebuild: `node-gyp clean && node-gyp rebuild`
 4. Check Python version (node-gyp requires Python 3)

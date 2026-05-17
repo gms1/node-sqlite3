@@ -15,6 +15,8 @@ These instructions apply to all future sessions working in this project.
 
 - **Wait for results** - When asking the user to check something or run a command, wait for the response before proceeding with next steps.
 
+- **Verify claims** - Only state what you actually verified
+
 - **Answering user questions** 
   - Try to keep your answer short and do not embellish your answer with assessments based on assumptions. 
   - Wait for feedback before proceeding with other things or asking questions about other things.
