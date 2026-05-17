@@ -80,8 +80,8 @@ function extractZip(zipPath, destDir) {
 }
 
 function main() {
-    const archivePath = process.argv[2];
-    const destDir = process.argv[3];
+    const archivePath = path.resolve(process.argv[2]);
+    const destDir = path.resolve(process.argv[3]);
 
     if (!archivePath || !destDir) {
         console.error('Usage: extract.js <archive_path> <dest_dir>');
