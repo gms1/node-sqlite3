@@ -41,14 +41,16 @@
 ### SQLite Build Pipeline using sqlite-amalgamation-*.zip
 - Switched from `sqlite-autoconf-*.tar.gz` to `sqlite-amalgamation-*.zip`
 - Removed `tar` npm dependency
-- Simplified `deps/sqlite3.gyp` (no `action_before_build`)
+- Restored `action_before_build` target in `deps/sqlite3.gyp`
+- Extraction now goes to `<(SHARED_INTERMEDIATE_DIR)` (build intermediate directory)
+- `deps/extract.js` — pure Node.js zip extractor, accepts CLI arguments
 - Updated `tools/bin/bump-sqlite.sh`
 
 ### ESM + CJS Dual Support Implementation
 - CJS: `lib/sqlite3.js` → `lib/sqlite3-callback.js` + `lib/sqlite3-binding.js`
 - ESM: `lib/sqlite3.mjs` → `lib/promise/` (SqliteDatabase, SqliteStatement, SqliteBackup)
 - TypeScript definitions updated
-- All 281 tests passing (including ESM tests)
+- All 339 tests passing (277 CJS + 62 ESM)
 
 ### SQLite Version Bump Script
 - `tools/bin/bump-sqlite.sh` downloads amalgamation zip, extracts, commits
@@ -93,4 +95,4 @@
 
 ### Testing Infrastructure
 - Mocha test framework with nyc coverage
-- 281 tests passing (including ESM tests)
+- 339 tests passing (277 CJS + 62 ESM)

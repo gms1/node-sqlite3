@@ -48,7 +48,9 @@ Common build configurations:
 ### deps/sqlite3.gyp
 
 SQLite library build configuration:
-- Compiles SQLite from amalgamation source (pre-extracted in deps/)
+- Uses two-target pattern with `action_before_build` and `sqlite3` targets
+- `action_before_build` target extracts `sqlite-amalgamation-*.zip` to `<(SHARED_INTERMEDIATE_DIR)` at build time
+- `sqlite3` target compiles from extracted source in the build intermediate directory
 - Enables FTS3/4/5, R-Tree, math functions
 - Thread-safe configuration
 

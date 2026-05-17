@@ -48,14 +48,39 @@
 
   'targets': [
     {
-      'target_name': 'sqlite3',
-      'type': 'static_library',
-      'include_dirs': [ './sqlite-amalgamation-<@(sqlite_version)/' ],
-      'sources': [
-        './sqlite-amalgamation-<@(sqlite_version)/sqlite3.c'
+      'target_name': 'action_before_build',
+      'type': 'none',
+      'hard_dependency': 1,
+      'actions': [
+        {
+          'action_name': 'unpack_sqlite_dep',
+          'inputs': [
+            './sqlite-amalgamation-<@(sqlite_version).zip'
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/sqlite-amalgamation-<@(sqlite_version)/sqlite3.c'
+          ],
+          'action': ['node', './extract.js', './sqlite-amalgamation-<@(sqlite_version).zip', '<(SHARED_INTERMEDIATE_DIR)']
+        }
       ],
       'direct_dependent_settings': {
-        'include_dirs': [ './sqlite-amalgamation-<@(sqlite_version)/' ],
+        'include_dirs': [
+          '<(SHARED_INTERMEDIATE_DIR)/sqlite-amalgamation-<@(sqlite_version)/',
+        ]
+      },
+    },
+    {
+      'target_name': 'sqlite3',
+      'type': 'static_library',
+      'include_dirs': [ '<(SHARED_INTERMEDIATE_DIR)/sqlite-amalgamation-<@(sqlite_version)/' ],
+      'dependencies': [
+        'action_before_build'
+      ],
+      'sources': [
+        '<(SHARED_INTERMEDIATE_DIR)/sqlite-amalgamation-<@(sqlite_version)/sqlite3.c'
+      ],
+      'direct_dependent_settings': {
+        'include_dirs': [ '<(SHARED_INTERMEDIATE_DIR)/sqlite-amalgamation-<@(sqlite_version)/' ],
         'defines': [
           'SQLITE_THREADSAFE=1',
           'HAVE_USLEEP=1',
@@ -80,6 +105,9 @@
         'SQLITE_ENABLE_RTREE',
         'SQLITE_ENABLE_DBSTAT_VTAB=1',
         'SQLITE_ENABLE_MATH_FUNCTIONS'
+      ],
+      'export_dependent_settings': [
+        'action_before_build',
       ],
       'conditions': [
         ["sqlite_magic != ''", {

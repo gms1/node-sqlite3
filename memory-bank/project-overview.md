@@ -39,7 +39,8 @@ node-sqlite3/
 ├── deps/                       # SQLite dependency
 │   ├── sqlite3.gyp             # SQLite build config
 │   ├── common-sqlite.gypi      # Common build config
-│   └── sqlite-amalgamation-*/  # SQLite source (pre-extracted)
+│   ├── extract.js              # Pure Node.js zip extractor
+│   └── sqlite-amalgamation-*.zip  # SQLite amalgamation zip (extracted at build time)
 ├── prebuilds/                  # Bundled prebuilt binaries (not in git, included in npm package)
 ├── test/                       # Test suite (mocha)
 │   ├── esm.test.mjs            # ESM-specific tests (38 tests)
@@ -130,7 +131,6 @@ import { SqliteDatabase } from '@homeofthings/sqlite3/promise';
 ### Runtime
 - `node-addon-api`: ^8.7.0 - C++ NAPI wrapper
 - `node-gyp-build`: ^4.8.4 - Native addon binary loader (resolves prebuilt or falls back to source build)
-- `tar`: ^7.5.13 - Tarball handling
 
 ### Development
 - `mocha`: 11.7.5 - Test framework
