@@ -153,17 +153,3 @@ Error: async hook stack has become corrupted (actual: 71600, expected: 71600)
 
 **Next steps**: Try HandleScope fix (add `Napi::HandleScope` in `CREATE_WORK`), reorder CI to capture debug output, and if needed use `--no-force-async-hooks-checks` workaround.
 
----
-
-## CI "release not found" error — FIXED
-
-**Status**: Fixed as of 2026-04-25.
-
-**Problem**: When pushing a new tag, the `gh release upload` step in the `build` and `build-musl` jobs failed with `release not found` because the GitHub Release didn't exist yet. The `gh release upload` command requires the release to already exist.
-
-**Fix**: Added a `create-release` job that runs after `verify-version` and creates a draft GitHub Release using `gh release create --draft`. The `build` and `build-musl` jobs now depend on `create-release` (in addition to `verify-version` and `lint`), ensuring the release exists before any upload attempts.
-
-**Changes**:
-- `.github/workflows/ci.yml`: Added `create-release` job that creates a draft release on tag events
-- `.github/workflows/ci.yml`: `build` job now depends on `[verify-version, lint, create-release]` with `if: !cancelled() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')`
-- `.github/workflows/ci.yml`: `build-musl` job now depends on `[verify-version, create-release]` with similar conditional

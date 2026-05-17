@@ -22,6 +22,14 @@ These instructions apply to all future sessions working in this project.
   - Wait for feedback before proceeding with other things or asking questions about other things.
   - Do not change the subject/topic.
 
+## Coding
+
+- Do not add comments for trivial code, e.g:
+  ```
+    // Trim leading whitespace
+    const trimmed = dbtype.trimStart();  
+  ```
+
 ## Command Execution
 
 - Do not prefix commands unnecessarily with `cd /path/to/current/working/directory &&` when the command should run in the current working directory
