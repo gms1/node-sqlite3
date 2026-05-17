@@ -39,7 +39,8 @@ node-sqlite3/
 ├── deps/                       # SQLite dependency
 │   ├── sqlite3.gyp             # SQLite build config
 │   ├── common-sqlite.gypi      # Common build config
-│   └── sqlite-amalgamation-*/  # SQLite source (pre-extracted)
+│   ├── extract.js              # Pure Node.js zip extractor
+│   └── sqlite-amalgamation-*.zip  # SQLite amalgamation zip (extracted at build time)
 ├── prebuilds/                  # Bundled prebuilt binaries (not in git, included in npm package)
 ├── test/                       # Test suite (mocha)
 │   ├── esm.test.mjs            # ESM-specific tests (38 tests)

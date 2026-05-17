@@ -417,17 +417,18 @@ step8_create_branch() {
 }
 
 step9_download_and_replace() {
-    log_step "9" "Download new SQLite amalgamation zip and extract to deps/"
+    log_step "9" "Download new SQLite amalgamation zip to deps/"
 
     local old_dir="sqlite-amalgamation-${FROM_VERSION}"
+    local old_zip="sqlite-amalgamation-${FROM_VERSION}.zip"
     local new_dir="sqlite-amalgamation-${NEW_VERSION}"
     local new_zip="sqlite-amalgamation-${NEW_VERSION}.zip"
 
     if [[ "$DRY_RUN" == true ]]; then
         log_dry "Would download ${new_zip} from sqlite.org"
-        log_dry "Would extract ${new_zip} to deps/${new_dir}/"
-        log_dry "Would git rm deps/${old_dir}/ from deps/"
-        log_dry "Would place deps/${new_dir}/ in deps/"
+        log_dry "Would git rm deps/${old_zip} from deps/"
+        log_dry "Would place deps/${new_zip} in deps/"
+        log_dry "Would remove old extracted dir deps/${old_dir}/ (if present)"
         return
     fi
 
@@ -534,22 +535,25 @@ step9_download_and_replace() {
         log "         Skipping checksum verification."
     fi
 
-    # Extract the zip
-    log "Extracting ${new_zip}..."
-    if ! unzip -o "${tmp_dir}/${new_zip}" -d "${DEPS_DIR}/"; then
-        echo "ERROR: Failed to extract ${new_zip}" >&2
-        exit "$EXIT_GENERAL_ERROR"
-    fi
+    # Move zip to deps/
+    log "Placing ${new_zip} in deps/..."
+    mv "${tmp_dir}/${new_zip}" "${DEPS_DIR}/${new_zip}"
 
-    # Remove old amalgamation directory
-    if [[ -d "${DEPS_DIR}/${old_dir}" ]]; then
-        log "Removing old amalgamation directory: ${old_dir}"
-        git rm -r "${DEPS_DIR}/${old_dir}"
+    # Remove old zip from git
+    if [[ -f "${DEPS_DIR}/${old_zip}" ]]; then
+        log "Removing old zip from git: ${old_zip}"
+        git rm -f "${DEPS_DIR}/${old_zip}"
     else
-        log "WARNING: Old amalgamation directory not found: ${DEPS_DIR}/${old_dir}"
+        log "WARNING: Old zip not found: ${DEPS_DIR}/${old_zip}"
     fi
 
-    log "Amalgamation extracted to deps/${new_dir}/"
+    # Clean up old extracted directory from disk if present
+    if [[ -d "${PROJECT_ROOT}/build/${old_dir}" ]]; then
+        log "Removing old extracted directory: ${old_dir}"
+        rm -rf "${PROJECT_ROOT}/build/${old_dir}"
+    fi
+
+    log "Zip placed at deps/${new_zip}"
 }
 
 step10_update_gypi() {
@@ -725,7 +729,7 @@ step16_commit() {
 
     # Stage relevant files
     git add "${GYPI_FILE}"
-    git add "${DEPS_DIR}/sqlite-amalgamation-"*/
+    git add "${DEPS_DIR}/sqlite-amalgamation-${NEW_VERSION}.zip"
     git add "$README_FILE"
 
     git commit -m "$commit_msg"

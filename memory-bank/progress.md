@@ -41,7 +41,9 @@
 ### SQLite Build Pipeline using sqlite-amalgamation-*.zip
 - Switched from `sqlite-autoconf-*.tar.gz` to `sqlite-amalgamation-*.zip`
 - Removed `tar` npm dependency
-- Simplified `deps/sqlite3.gyp` (no `action_before_build`)
+- Restored `action_before_build` target in `deps/sqlite3.gyp`
+- Extraction now goes to `<(SHARED_INTERMEDIATE_DIR)` (build intermediate directory)
+- `deps/extract.js` — pure Node.js zip extractor, accepts CLI arguments
 - Updated `tools/bin/bump-sqlite.sh`
 
 ### ESM + CJS Dual Support Implementation
