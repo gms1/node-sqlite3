@@ -69,6 +69,121 @@ After releasing, you can verify:
 - GitHub Release with binaries: https://github.com/gms1/node-sqlite3/releases
 - npm package: https://www.npmjs.com/package/@homeofthings/sqlite3
 
+## How to Bump SQLite
+
+The project bundles SQLite as an amalgamation zip file in `deps/`. To upgrade to a newer SQLite version, use the automated script or follow the manual steps below.
+
+### Automated: `bump-sqlite.sh`
+
+The [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) script automates the entire process:
+
+```bash
+# Auto-detect the latest SQLite version and bump (with 7-day cooldown)
+tools/bin/bump-sqlite.sh
+
+# Specify a version explicitly
+tools/bin/bump-sqlite.sh 3510400
+
+# Dry-run to preview changes
+tools/bin/bump-sqlite.sh --dry-run
+
+# Skip cooldown check
+tools/bin/bump-sqlite.sh --force 3510400
+```
+
+The script performs these steps:
+
+1. **Validate** the target version (numeric format, e.g., `3530300` for SQLite 3.53.3)
+2. **Check** the source tree is clean (no uncommitted changes)
+3. **Compare** the target version against the current version in `deps/common-sqlite.gypi`
+4. **Enforce a cooldown** period (default: 7 days since the SQLite release) to allow the community to discover critical bugs
+5. **Create** a feature branch (`feature/bump_sqlite_X.Y.Z_W.A.B`)
+6. **Download** the new amalgamation zip from sqlite.org and verify its checksum
+7. **Update** `deps/common-sqlite.gypi` — change `sqlite_version%` to the new version
+8. **Update** `README.md` — update the bundled SQLite version reference
+9. **Build** (`yarn rebuild`) to verify compilation
+10. **Lint** (`yarn lint`) to ensure code quality
+11. **Test** (`yarn test`) to verify functionality
+12. **Commit** and **push** the feature branch
+
+### Manual Steps
+
+If you need to bump SQLite manually:
+
+1. **Download** the amalgamation zip from [sqlite.org/download.html](https://sqlite.org/download.html) and place it in `deps/`
+2. **Remove** the old zip from `deps/` and from git tracking:
+   ```bash
+   git rm deps/sqlite-amalgamation-<OLD_VERSION>.zip
+   ```
+3. **Update** [`deps/common-sqlite.gypi`](../deps/common-sqlite.gypi) — change `sqlite_version%` to the new numeric version:
+   ```
+   'sqlite_version%':'3530300',
+   ```
+4. **Update** [`README.md`](../README.md) — update the "Bundles SQLite v" reference (e.g., `Bundles SQLite v3.53.3`)
+5. **Review** [`deps/sqlite3.gyp`](../deps/sqlite3.gyp) — check if any new SQLite compile flags or defines are needed (e.g., new extensions)
+6. **Build and test**:
+   ```bash
+   yarn rebuild
+   yarn lint
+   yarn test
+   ```
+7. **Commit** with a message like: `Bumped bundled SQLite from 3.XX.YY to 3.WW.ZZ`
+
+### SQLite Version Number Format
+
+SQLite uses a numeric version format `XYYZZ00` where:
+- `X` = major version (always `3`)
+- `YY` = minor version (zero-padded, e.g., `53`)
+- `ZZ` = patch version (zero-padded, e.g., `03`)
+
+For example, SQLite **3.53.3** → numeric version **3530300**.
+
+### Key Files
+
+| File                             | Purpose                                                                       |
+|----------------------------------|-------------------------------------------------------------------------------|
+| `deps/common-sqlite.gypi`        | Stores `sqlite_version%` — the single source of truth for the bundled version |
+| `deps/sqlite3.gyp`               | Build configuration for SQLite (compile flags, defines, extensions)           |
+| `deps/sqlite-amalgamation-*.zip` | The bundled SQLite amalgamation archive                                       |
+| `deps/extract.js`                | Used at build time to extract the amalgamation zip                            |
+| `tools/bin/bump-sqlite.sh`       | Automated version bump script                                                 |
+| `README.md`                      | Human-readable version reference                                              |
+
+## Upgrading Dependencies
+
+When upgrading any npm dependency (e.g., `node-addon-api`, `node-gyp`, `node-gyp-build`), always verify that the new version's Node.js engine requirements are compatible with the project's declared minimum:
+
+1. **Install the dependency** with the new version:
+   ```bash
+   yarn add <package>@<version>
+   # or for devDependencies:
+   yarn add -D <package>@<version>
+   ```
+
+2. **Rebuild** native addons to pick up the new dependency:
+   ```bash
+   yarn rebuild
+   ```
+
+3. **Run the semver check** to verify that no dependency requires a higher Node.js version than the project supports:
+   ```bash
+   node tools/semver-check.js
+   ```
+   This script checks all `dependencies` and `optionalDependencies` in [`package.json`](../package.json) and reports if any dependency's `engines.node` requirement exceeds the [`supportedVersions`](../tools/semver-check.js) constant.
+
+   If the check **fails**, you need to:
+   - Update `supportedVersions` in [`tools/semver-check.js`](../tools/semver-check.js) to match the new minimum
+   - Update `engines.node` in [`package.json`](../package.json) to the same version
+   - Update version references in [`README.md`](../README.md), [`docs/DEVELOP.md`](DEVELOP.md), and [`memory-bank/`](../memory-bank/) files
+
+4. **Lint and test**:
+   ```bash
+   yarn lint
+   yarn test
+   ```
+
+5. **Commit** with a message like: `Upgraded <package> from X.Y.Z to A.B.C`
+
 ## Code Quality
 
 **IMPORTANT**: After making any code changes, always run:

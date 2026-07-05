@@ -8,7 +8,7 @@
 
 **Package Name**: `@homeofthings/sqlite3`
 
-**Node.js Version**: >= 22.1.0
+**Node.js Version**: >=22.22.2
 
 ## Architecture
 

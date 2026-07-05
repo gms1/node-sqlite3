@@ -43,7 +43,7 @@ yarn add @homeofthings/sqlite3
 
 ### Prebuilt binaries
 
-`@homeofthings/sqlite3` uses [Node-API](https://nodejs.org/api/n-api.html) so prebuilt binaries do not need to be built for specific Node versions. Prebuilt binaries are built as NAPI-version-agnostic (`@homeofthings+sqlite3.*.node`) using the `--napi` flag, and work on any Node.js version that supports the NAPI version used at compile time. Requires Node.js v22.1.0 or later.
+`@homeofthings/sqlite3` uses [Node-API](https://nodejs.org/api/n-api.html) so prebuilt binaries do not need to be built for specific Node versions. Prebuilt binaries are built as NAPI-version-agnostic (`@homeofthings+sqlite3.*.node`) using the `--napi` flag, and work on any Node.js version that supports the NAPI version used at compile time. Requires Node.js v22.22.2 or later.
 
 Prebuilt binaries are bundled inside the npm package using [`prebuildify`](https://github.com/prebuild/prebuildify) and loaded at runtime by [`node-gyp-build`](https://github.com/prebuild/node-gyp-build). No separate download step is needed — `npm install` just works. The following targets are currently provided:
 

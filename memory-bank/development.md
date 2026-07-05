@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Node.js >= 22.1.0
+- Node.js >=22.22.2
 - Python 3 (for node-gyp)
 - C++ compiler (gcc, clang, or MSVC)
 - yarn or npm

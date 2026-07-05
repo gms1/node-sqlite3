@@ -306,7 +306,7 @@ if (locked && pending == before_pending) {
 
 ### Node.js Version Requirement
 
-**Decision**: Require Node.js >= 22.1.0
+**Decision**: Require Node.js >=22.22.2
 
 **Rationale**: 
 - Modern NAPI support
