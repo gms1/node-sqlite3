@@ -227,7 +227,7 @@ The `install` script runs `node-gyp-build` which tests whether the prebuilt bina
 
 ## Platform Support
 
-- Node.js >= 22.1.0
+- Node.js >=22.22.2
 - NAPI: version-agnostic (`@homeofthings+sqlite3.*.node`), built with NAPI v9 on Node 22 (PREBUILD_NODE_VERSION)
 - Platforms: Linux (glibc + musl), macOS, Windows (see CI configuration)
 
@@ -394,7 +394,7 @@ The project uses three GitHub Actions workflows for continuous integration and r
 
 ### Build Fails
 
-1. Check Node.js version: `node --version` (must be >= 22.1.0)
+1. Check Node.js version: `node --version` (must be >=22.22.2)
 2. Check node-gyp version: `node-gyp --version`
 3. Try clean rebuild: `node-gyp clean && node-gyp rebuild`
 4. Check Python version (node-gyp requires Python 3)

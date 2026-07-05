@@ -40,13 +40,13 @@
     "url": "https://github.com/gms1/node-sqlite3.git"
   },
   "dependencies": {
-    "node-addon-api": "^8.8.0",
+    "node-addon-api": "^8.9.0",
     "node-gyp-build": "^4.8.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.4.1",
-    "globals": "^17.6.0",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0",
     "mocha": "11.7.6",
     "nyc": "^18.0.0",
     "prebuildify": "^6.0.1",
@@ -61,10 +61,10 @@
     }
   },
   "optionalDependencies": {
-    "node-gyp": "12.x"
+    "node-gyp": "13.x"
   },
   "engines": {
-    "node": ">=22.1.0"
+    "node": ">=22.22.2"
   },
   "scripts": {
     "install": "node-gyp-build",

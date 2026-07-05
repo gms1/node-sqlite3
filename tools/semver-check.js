@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const semver = require('semver');
 
-const supportedVersions = '22.1.0';
+const supportedVersions = '22.22.2';
 
 function checkEngines(modulePath) {
     const packageJsonPath = path.join(modulePath, 'package.json');
