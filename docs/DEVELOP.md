@@ -69,6 +69,45 @@ After releasing, you can verify:
 - GitHub Release with binaries: https://github.com/gms1/node-sqlite3/releases
 - npm package: https://www.npmjs.com/package/@homeofthings/sqlite3
 
+## Maintenance Workflow
+
+The [`tools/bin/maintenance.sh`](../tools/bin/maintenance.sh) script automates routine maintenance: checking for SQLite bumps and upgrading dependencies.
+
+```bash
+# Check for SQLite bumps and dependency upgrades, then apply them
+tools/bin/maintenance.sh
+
+# Preview what would be done
+tools/bin/maintenance.sh --dry-run
+
+# Only upgrade dependencies (skip SQLite check)
+tools/bin/maintenance.sh --skip-sqlite
+
+# Only check SQLite (skip dependency upgrades)
+tools/bin/maintenance.sh --skip-deps
+
+# Skip cooldown period for SQLite bumps
+tools/bin/maintenance.sh --force-sqlite
+
+# Don't push to remote
+tools/bin/maintenance.sh --no-push
+```
+
+The script performs these steps:
+
+1. **Check** if the source tree is clean
+2. **Check** for a new SQLite version — if available, delegates to [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push)
+3. **Check** for outdated npm dependencies via `yarn outdated`
+4. **Ensure** a feature branch — if already on a `feature/*` branch (e.g., after a SQLite bump), reuses it; otherwise creates `feature/deps_upgrade_YYYYMMDD`
+5. **Upgrade** dependencies via `yarn upgrade`
+6. **Run semver check** (`node tools/semver-check.js`) to verify dependency Node.js version compatibility
+7. **Rebuild** (`yarn rebuild`) to verify compilation
+8. **Lint** (`yarn lint --fix`) to ensure code quality
+9. **Test** (`yarn test`) to verify functionality
+10. **Commit** and **push** the dependency upgrades
+
+> **Note:** If a SQLite bump was already applied (e.g., by a previous run or manually), the script will detect the existing `feature/*` branch and reuse it for the dependency upgrade commit.
+
 ## How to Bump SQLite
 
 The project bundles SQLite as an amalgamation zip file in `deps/`. To upgrade to a newer SQLite version, use the automated script or follow the manual steps below.
