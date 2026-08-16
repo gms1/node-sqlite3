@@ -99,14 +99,14 @@ The script performs these steps:
 2. **Check** for a new SQLite version — if available, delegates to [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push)
 3. **Check** for outdated npm dependencies via `yarn outdated`
 4. **Ensure** a feature branch — if already on a `feature/*` branch (e.g., after a SQLite bump), reuses it; otherwise creates `feature/deps_upgrade_YYYYMMDD`
-5. **Upgrade** dependencies via `yarn upgrade`
+5. **Upgrade** dependencies via `npx npm-check-updates -u && yarn install` (main project and `tools/benchmark-drivers/` sub-project)
 6. **Run semver check** (`node tools/semver-check.js`) to verify dependency Node.js version compatibility
 7. **Rebuild** (`yarn rebuild`) to verify compilation
 8. **Lint** (`yarn lint --fix`) to ensure code quality
 9. **Test** (`yarn test`) to verify functionality
 10. **Commit** and **push** the dependency upgrades
 
-> **Note:** If a SQLite bump was already applied (e.g., by a previous run or manually), the script will detect the existing `feature/*` branch and reuse it for the dependency upgrade commit.
+> **Note:** If you are already on a `feature/*` branch (e.g., left after a SQLite bump), the script will reuse it for the dependency upgrade commit rather than creating a new one.
 
 ## How to Bump SQLite
 
