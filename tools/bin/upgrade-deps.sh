@@ -228,7 +228,7 @@ step2_check_sqlite() {
         log "New SQLite version available: ${current_human} → ${latest_human}"
 
         if [[ "$DRY_RUN" == true ]]; then
-            log_dry "Would run: ${BUMP_SQLITE_SCRIPT} ${latest_version}"
+            log_dry "Would run: ${UPGRADE_SQLITE_SCRIPT} ${latest_version}"
             if [[ "$FORCE_SQLITE" == true ]]; then
                 log_dry "  with --force flag"
             fi
