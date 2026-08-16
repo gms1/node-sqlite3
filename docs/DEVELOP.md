@@ -71,32 +71,62 @@ After releasing, you can verify:
 
 ## Maintenance Workflow
 
-The [`tools/bin/maintenance.sh`](../tools/bin/maintenance.sh) script automates routine maintenance: checking for SQLite bumps and upgrading dependencies.
+The [`tools/bin/maintenance.sh`](../tools/bin/maintenance.sh) script automates the full maintenance cycle: upgrading dependencies, creating a PR, merging, and releasing.
 
 ```bash
-# Check for SQLite bumps and dependency upgrades, then apply them
+# Run the full maintenance cycle
 tools/bin/maintenance.sh
 
 # Preview what would be done
 tools/bin/maintenance.sh --dry-run
 
-# Only upgrade dependencies (skip SQLite check)
-tools/bin/maintenance.sh --skip-sqlite
-
-# Only check SQLite (skip dependency upgrades)
-tools/bin/maintenance.sh --skip-deps
-
-# Skip cooldown period for SQLite bumps
-tools/bin/maintenance.sh --force-sqlite
+# Skip creating a PR (just upgrade and commit locally)
+tools/bin/maintenance.sh --no-pr
 
 # Don't push to remote
 tools/bin/maintenance.sh --no-push
+
+# Skip the release step after merging
+tools/bin/maintenance.sh --no-release
+```
+
+The script performs these steps:
+
+1. **Upgrade** dependencies and SQLite via [`upgrade-deps.sh`](../tools/bin/upgrade-deps.sh)
+2. **Create** a pull request with the upgrade changes
+3. **Wait** for CI checks to pass, then **merge** the PR
+4. **Release** — if the PR contains a SQLite bump or unpublished security fix, bump the patch version, push tags, and trigger npm publish
+
+> **Note:** Step 1 delegates to [`upgrade-deps.sh`](../tools/bin/upgrade-deps.sh), which itself delegates SQLite bumps to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh).
+
+### Upgrade Dependencies: `upgrade-deps.sh`
+
+The [`tools/bin/upgrade-deps.sh`](../tools/bin/upgrade-deps.sh) script checks for SQLite bumps and dependency upgrades, then applies them:
+
+```bash
+# Check for SQLite bumps and dependency upgrades, then apply them
+tools/bin/upgrade-deps.sh
+
+# Preview what would be done
+tools/bin/upgrade-deps.sh --dry-run
+
+# Only upgrade dependencies (skip SQLite check)
+tools/bin/upgrade-deps.sh --skip-sqlite
+
+# Only check SQLite (skip dependency upgrades)
+tools/bin/upgrade-deps.sh --skip-deps
+
+# Skip cooldown period for SQLite bumps
+tools/bin/upgrade-deps.sh --force-sqlite
+
+# Don't push to remote
+tools/bin/upgrade-deps.sh --no-push
 ```
 
 The script performs these steps:
 
 1. **Check** if the source tree is clean
-2. **Check** for a new SQLite version — if available, delegates to [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push)
+2. **Check** for a new SQLite version — if available, delegates to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push)
 3. **Check** for outdated npm dependencies via `yarn outdated`
 4. **Ensure** a feature branch — if already on a `feature/*` branch (e.g., after a SQLite bump), reuses it; otherwise creates `feature/deps_upgrade_YYYYMMDD`
 5. **Upgrade** dependencies via `npx npm-check-updates -u && yarn install` (main project and `tools/benchmark-drivers/` sub-project)
@@ -112,22 +142,22 @@ The script performs these steps:
 
 The project bundles SQLite as an amalgamation zip file in `deps/`. To upgrade to a newer SQLite version, use the automated script or follow the manual steps below.
 
-### Automated: `bump-sqlite.sh`
+### Automated: `upgrade-sqlite.sh`
 
-The [`tools/bin/bump-sqlite.sh`](../tools/bin/bump-sqlite.sh) script automates the entire process:
+The [`tools/bin/upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh) script automates the entire process:
 
 ```bash
 # Auto-detect the latest SQLite version and bump (with 7-day cooldown)
-tools/bin/bump-sqlite.sh
+tools/bin/upgrade-sqlite.sh
 
 # Specify a version explicitly
-tools/bin/bump-sqlite.sh 3510400
+tools/bin/upgrade-sqlite.sh 3510400
 
 # Dry-run to preview changes
-tools/bin/bump-sqlite.sh --dry-run
+tools/bin/upgrade-sqlite.sh --dry-run
 
 # Skip cooldown check
-tools/bin/bump-sqlite.sh --force 3510400
+tools/bin/upgrade-sqlite.sh --force 3510400
 ```
 
 The script performs these steps:
@@ -185,7 +215,7 @@ For example, SQLite **3.53.3** → numeric version **3530300**.
 | `deps/sqlite3.gyp`               | Build configuration for SQLite (compile flags, defines, extensions)           |
 | `deps/sqlite-amalgamation-*.zip` | The bundled SQLite amalgamation archive                                       |
 | `deps/extract.js`                | Used at build time to extract the amalgamation zip                            |
-| `tools/bin/bump-sqlite.sh`       | Automated version bump script                                                 |
+| `tools/bin/upgrade-sqlite.sh`    | Automated SQLite version upgrade script                                        |
 | `README.md`                      | Human-readable version reference                                              |
 
 ## Upgrading Dependencies

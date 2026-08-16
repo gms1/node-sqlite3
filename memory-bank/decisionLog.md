@@ -53,7 +53,7 @@
 - `deps/extract.js` — pure Node.js zip extractor (no external deps), accepts `archive_path` and `dest_dir` as CLI arguments
 - `deps/sqlite-autoconf-3530000.tar.gz` — deleted, replaced by `deps/sqlite-amalgamation-3530100.zip`
 - `package.json` — removed `tar` from dependencies, added `deps/extract.js` and `deps/sqlite-amalgamation-*.zip` to `files` field
-- `tools/bin/bump-sqlite.sh` — downloads amalgamation zip to `deps/`, no longer pre-extracts
+- `tools/bin/upgrade-sqlite.sh` — downloads amalgamation zip to `deps/`, no longer pre-extracts
 
 ### 2026-04-21: ESM + CJS Dual Support
 
@@ -137,7 +137,7 @@
 
 ### 2026-04-17: SQLite Version Bump Script Design
 
-**Decision**: Create `tools/bin/bump-sqlite.sh` as a standalone bash script in `tools/bin/` (not a per-script subdirectory)
+**Decision**: Create `tools/bin/upgrade-sqlite.sh` as a standalone bash script in `tools/bin/` (not a per-script subdirectory)
 
 **Rationale**:
 - `tools/bin/` is the designated directory for all utility scripts — avoids creating a sub-directory per script
@@ -148,7 +148,7 @@
 - Cooldown period (default 7 days) to let new SQLite releases settle before adoption
 
 **Files Created**:
-- `tools/bin/bump-sqlite.sh` — Main script
+- `tools/bin/upgrade-sqlite.sh` — Main script
 
 ---
 

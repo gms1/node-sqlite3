@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 #
-# maintenance.sh — Check for SQLite bumps and dependency upgrades, then apply them
+# maintenance.sh — Full maintenance cycle: upgrade, PR, merge, release
 #
 # Usage: maintenance.sh [OPTIONS]
 #
 # Options:
 #   --dry-run            Show what would be done without making changes
 #   --no-push            Commit but do not push to remote
+#   --no-pr              Skip PR creation (just upgrade and commit locally)
+#   --no-release         Skip version bump and npm publish after merge
 #   --skip-sqlite        Skip SQLite version check
 #   --skip-deps          Skip dependency upgrade check
-#   --force-sqlite       Pass --force to bump-sqlite.sh (skip cooldown)
+#   --force-sqlite       Pass --force to upgrade-sqlite.sh (skip cooldown)
 #   -h, --help           Show this help message
 #
 set -euo pipefail
@@ -18,26 +20,18 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-readonly SEMVER_CHECK_SCRIPT="${PROJECT_ROOT}/tools/semver-check.js"
-readonly BUMP_SQLITE_SCRIPT="${PROJECT_ROOT}/tools/bin/bump-sqlite.sh"
-readonly GYPI_FILE="${PROJECT_ROOT}/deps/common-sqlite.gypi"
-readonly BENCHMARK_DRIVERS_DIR="${PROJECT_ROOT}/tools/benchmark-drivers"
-readonly SQLITE_DOWNLOAD_URL="https://sqlite.org/download.html"
-readonly SQLITE_CHANGES_URL="https://sqlite.org/changes.html"
+readonly UPGRADE_DEPS_SCRIPT="${SCRIPT_DIR}/upgrade-deps.sh"
 
 # Exit codes
 readonly EXIT_SUCCESS=0
 readonly EXIT_GENERAL_ERROR=1
-readonly EXIT_DIRTY_TREE=2
-readonly EXIT_SEMVER_FAIL=10
-readonly EXIT_BUILD_FAIL=7
-readonly EXIT_LINT_FAIL=8
-readonly EXIT_TEST_FAIL=9
 
-# ─── Defaults ─────────────────────────────────────────────────────────────────
+# ─── Defaults ────────────────────────────────────────────────────────────────
 
 DRY_RUN=false
 NO_PUSH=false
+NO_PR=false
+NO_RELEASE=false
 SKIP_SQLITE=false
 SKIP_DEPS=false
 FORCE_SQLITE=false
@@ -48,36 +42,35 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Check for available SQLite bumps and dependency upgrades, then apply them.
+Full maintenance cycle: upgrade dependencies, create PR, merge, and release.
 
 The script will:
-  1. Check if a newer SQLite version is available (with cooldown)
-  2. Check if npm dependencies have upgrades available
-  3. Create a feature branch and apply upgrades
-  4. Run semver check, rebuild, lint, and test
+  1. Run upgrade-deps.sh to check for SQLite bumps and dependency upgrades
+  2. Create a pull request for the changes
+  3. Wait for CI checks and merge the PR
+  4. If needed, bump the patch version and push tags (for releases)
 
 Options:
   --dry-run            Show what would be done without making changes
   --no-push            Commit but do not push to remote
+  --no-pr              Skip PR creation (just upgrade and commit locally)
+  --no-release         Skip version bump and npm publish after merge
   --skip-sqlite        Skip SQLite version check
   --skip-deps          Skip dependency upgrade check
-  --force-sqlite       Pass --force to bump-sqlite.sh (skip cooldown)
+  --force-sqlite       Pass --force to upgrade-sqlite.sh (skip cooldown)
   -h, --help           Show this help message
 
 Examples:
-  $(basename "$0")                      # Check and apply all upgrades
+  $(basename "$0")                      # Full maintenance cycle
   $(basename "$0") --dry-run            # Preview what would be done
+  $(basename "$0") --no-pr              # Upgrade and push, but no PR/merge/release
+  $(basename "$0") --no-release         # Upgrade, PR, merge, but skip release
   $(basename "$0") --skip-sqlite        # Only upgrade dependencies
-  $(basename "$0") --skip-deps          # Only bump SQLite
+  $(basename "$0") --skip-deps          # Only check SQLite
 
 Exit Codes:
   0  Success
   1  General error
-  2  Dirty working tree
-  7  Build failure
-  8  Lint failure
-  9  Test failure
-  10 Semver check failure
 EOF
 }
 
@@ -94,45 +87,6 @@ log_dry() {
     echo "[DRY-RUN] $*"
 }
 
-# Convert SQLite numeric version to human-readable format
-numeric_to_human() {
-    local ver="$1"
-    local major=$((ver / 1000000))
-    local minor=$(( (ver % 1000000) / 10000 ))
-    local patch=$(( (ver % 10000) / 100 ))
-    printf "%d.%d.%d" "$major" "$minor" "$patch"
-}
-
-# Read the current SQLite version from deps/common-sqlite.gypi
-read_current_sqlite_version() {
-    grep "sqlite_version%" "$GYPI_FILE" | grep -oE '[0-9]+' | head -1
-}
-
-# Detect the latest available SQLite version from sqlite.org
-detect_latest_sqlite_version() {
-    log "Fetching SQLite download page to detect latest version..." >&2
-    local download_html
-    download_html="$(curl -sL "$SQLITE_DOWNLOAD_URL" 2>/dev/null || true)"
-
-    if [[ -z "$download_html" ]]; then
-        echo "ERROR: Could not fetch SQLite download page to detect latest version" >&2
-        return 1
-    fi
-
-    local latest_version
-    latest_version="$(echo "$download_html" | \
-        grep -oP 'sqlite-amalgamation-\K3\d{6}' | \
-        sort -n | \
-        tail -1 || true)"
-
-    if [[ -z "$latest_version" ]]; then
-        echo "ERROR: Could not parse latest SQLite version from download page" >&2
-        return 1
-    fi
-
-    echo "$latest_version"
-}
-
 # ─── Argument Parsing ────────────────────────────────────────────────────────
 
 parse_args() {
@@ -144,6 +98,14 @@ parse_args() {
                 ;;
             --no-push)
                 NO_PUSH=true
+                shift
+                ;;
+            --no-pr)
+                NO_PR=true
+                shift
+                ;;
+            --no-release)
+                NO_RELEASE=true
                 shift
                 ;;
             --skip-sqlite)
@@ -176,366 +138,242 @@ parse_args() {
     done
 }
 
-# ─── Step Implementations ────────────────────────────────────────────────────
+# ─── Preflight Checks ─────────────────────────────────────────────────────────
 
-step1_check_clean_tree() {
-    log_step "1" "Check if source tree is clean"
+preflight_checks() {
+    log "Running preflight checks..."
 
-    if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-        echo "ERROR: Source tree has uncommitted changes. Please commit or stash first." >&2
-        if [[ "$DRY_RUN" == true ]]; then
-            log_dry "Would exit with ${EXIT_DIRTY_TREE}"
-        else
-            exit "$EXIT_DIRTY_TREE"
-        fi
-    fi
-
-    local untracked
-    untracked="$(git ls-files --others --exclude-standard 2>/dev/null || true)"
-    if [[ -n "$untracked" ]]; then
-        log "WARNING: There are untracked files in the working tree:"
-        echo "$untracked" | head -5 | sed 's/^/  /'
-    fi
-
-    log "Source tree is clean"
-}
-
-step2_check_sqlite() {
-    log_step "2" "Check for new SQLite version"
-
-    if [[ "$SKIP_SQLITE" == true ]]; then
-        log "SQLite check skipped (--skip-sqlite)"
-        return 0
-    fi
-
-    local current_version
-    current_version="$(read_current_sqlite_version)"
-    local current_human
-    current_human="$(numeric_to_human "$current_version")"
-
-    local latest_version
-    if ! latest_version="$(detect_latest_sqlite_version)"; then
-        log "WARNING: Could not detect latest SQLite version. Skipping SQLite check."
-        return 0
-    fi
-    local latest_human
-    latest_human="$(numeric_to_human "$latest_version")"
-
-    log "Current SQLite version: ${current_version} (${current_human})"
-    log "Latest SQLite version:   ${latest_version} (${latest_human})"
-
-    if [[ "$latest_version" -gt "$current_version" ]]; then
-        log "New SQLite version available: ${current_human} → ${latest_human}"
-
-        if [[ "$DRY_RUN" == true ]]; then
-            log_dry "Would run: ${BUMP_SQLITE_SCRIPT} ${latest_version}"
-            if [[ "$FORCE_SQLITE" == true ]]; then
-                log_dry "  with --force flag"
-            fi
-            if [[ "$NO_PUSH" == true ]]; then
-                log_dry "  with --no-push flag"
-            fi
-            return 0
-        fi
-
-        local bump_args=()
-        if [[ "$FORCE_SQLITE" == true ]]; then
-            bump_args+=(--force)
-        fi
-        if [[ "$NO_PUSH" == true ]]; then
-            bump_args+=(--no-push)
-        fi
-        bump_args+=("$latest_version")
-
-        log "Running bump-sqlite.sh ${bump_args[*]}"
-        if ! "${BUMP_SQLITE_SCRIPT}" "${bump_args[@]}"; then
-            echo "ERROR: SQLite bump failed." >&2
+    # Check SSH key availability (needed for git push)
+    if [[ "$NO_PUSH" != true ]]; then
+        if ! ssh-add -l &>/dev/null; then
+            echo "ERROR: No SSH key loaded in ssh-agent. Run 'ssh-add' first, or use --no-push." >&2
             exit "$EXIT_GENERAL_ERROR"
         fi
-
-        log "SQLite bump completed. Exiting — dependency upgrade should be run separately."
-        exit "$EXIT_SUCCESS"
+        log "SSH key: OK"
     else
-        log "SQLite is up to date (${current_human})"
+        log "SSH key: skipped (--no-push)"
+    fi
+
+    # Check gh CLI authentication (needed for PR create, merge, and release)
+    if [[ "$NO_PR" != true ]]; then
+        if ! command -v gh &>/dev/null; then
+            echo "ERROR: 'gh' CLI not found. Install it or use --no-pr." >&2
+            exit "$EXIT_GENERAL_ERROR"
+        fi
+        if ! gh auth status &>/dev/null; then
+            echo "ERROR: 'gh' not authenticated. Run 'gh auth login' first, or use --no-pr." >&2
+            exit "$EXIT_GENERAL_ERROR"
+        fi
+        log "gh auth: OK"
+    else
+        log "gh auth: skipped (--no-pr)"
     fi
 }
 
-step3_check_deps() {
-    log_step "3" "Check for dependency upgrades"
+# ─── Step Implementations ────────────────────────────────────────────────────
 
-    if [[ "$SKIP_DEPS" == true ]]; then
-        log "Dependency check skipped (--skip-deps)"
-        return 1
+step1_upgrade() {
+    log_step "1" "Upgrade dependencies and SQLite"
+
+    local upgrade_args=()
+    if [[ "$DRY_RUN" == true ]]; then upgrade_args+=(--dry-run); fi
+    if [[ "$NO_PUSH" == true ]]; then upgrade_args+=(--no-push); fi
+    if [[ "$SKIP_SQLITE" == true ]]; then upgrade_args+=(--skip-sqlite); fi
+    if [[ "$SKIP_DEPS" == true ]]; then upgrade_args+=(--skip-deps); fi
+    if [[ "$FORCE_SQLITE" == true ]]; then upgrade_args+=(--force-sqlite); fi
+
+    if ! "$UPGRADE_DEPS_SCRIPT" "${upgrade_args[@]}"; then
+        echo "ERROR: Dependency upgrade failed." >&2
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+}
+
+step2_create_pr() {
+    log_step "2" "Create pull request"
+
+    if [[ "$NO_PR" == true ]]; then
+        log "PR creation skipped (--no-pr)"
+        return
     fi
 
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would check for outdated dependencies via yarn outdated"
-    else
-        log "Checking for outdated dependencies..."
-        local outdated
-        outdated="$(cd "$PROJECT_ROOT" && yarn outdated --format=json 2>/dev/null || true)"
-
-        if [[ -z "$outdated" ]] || [[ "$outdated" == "{}" ]]; then
-            log "All dependencies are up to date"
-            return 1
-        fi
-
-        # Show what's outdated
-        log "Outdated dependencies found:"
-        echo "$outdated" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    for pkg, info in data.items():
-        current = info.get('current', '?')
-        wanted = info.get('wanted', '?')
-        latest = info.get('latest', '?')
-        print(f'  {pkg}: {current} → {wanted} (latest: {latest})')
-except Exception:
-    pass
-" 2>/dev/null || log "(Could not parse yarn outdated output)"
+        log_dry "Would create a pull request for the current branch"
+        return
     fi
 
-    return 0
-}
-
-step4_ensure_branch() {
-    log_step "4" "Ensure feature branch for dependency upgrades"
-
+    # Check if we're on a feature branch
     local current_branch
     current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 
-    # If already on a feature branch, reuse it
-    if [[ -n "$current_branch" && "$current_branch" == feature/* ]]; then
-        log "Already on feature branch: ${current_branch} — reusing it"
+    if [[ ! "$current_branch" == feature/* ]]; then
+        log "Not on a feature branch (on: ${current_branch}), skipping PR creation"
         return
     fi
 
-    # If on main or another non-feature branch, create a new one
-    local timestamp
-    timestamp="$(date +%Y%m%d)"
-    local branch_name="feature/deps_upgrade_${timestamp}"
+    # Push to remote (upgrade-deps.sh may have already pushed, but this is idempotent)
+    git push -u origin "$current_branch"
 
-    log "Creating branch: ${branch_name}"
-
-    if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: git checkout -b ${branch_name}"
-        return
+    # Determine PR title based on changed files
+    local pr_title="chore: upgrade dependencies"
+    if git diff main...HEAD --name-only 2>/dev/null | grep -q "deps/common-sqlite.gypi"; then
+        pr_title="chore: upgrade SQLite and dependencies"
     fi
 
-    git checkout -b "$branch_name"
+    local pr_body="Automated dependency upgrade via \`maintenance.sh\`."
+
+    local pr_url
+    pr_url="$(gh pr create --title "$pr_title" --body "$pr_body" --base main 2>&1)" || {
+        echo "ERROR: Failed to create pull request." >&2
+        echo "$pr_url" >&2
+        exit "$EXIT_GENERAL_ERROR"
+    }
+
+    log "Created PR: $pr_url"
 }
 
-step5_upgrade_deps() {
-    log_step "5" "Upgrade dependencies"
+step3_merge_pr() {
+    log_step "3" "Wait for CI checks and merge PR"
 
-    if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: npx npm-check-updates -u && yarn install (project root)"
-        log_dry "Would run: npx npm-check-updates -u && yarn install (benchmark-drivers)"
+    if [[ "$NO_PR" == true ]]; then
+        log "Merge skipped (--no-pr)"
         return
     fi
 
-    log "Upgrading dependencies..."
-
-    # npm-check-updates updates version ranges in package.json to their latest
-    # compatible versions (preserving range style: ^, ~, exact, etc.).
-    # This handles cases that plain "yarn upgrade" misses:
-    #   - Pinned versions like "mocha": "11.7.6" (yarn upgrade won't bump these)
-    #   - Caret ranges like "eslint": "^10.6.0" (yarn upgrade installs the latest
-    #     matching version but never updates the range in package.json)
-
-    # --- Main project ---
-    log "Upgrading main project dependencies..."
-    cd "$PROJECT_ROOT"
-    npx npm-check-updates -u
-    yarn install
-
-    # --- Benchmark drivers sub-project ---
-    if [[ -f "${BENCHMARK_DRIVERS_DIR}/package.json" ]]; then
-        log "Upgrading benchmark-drivers dependencies..."
-        (
-            cd "$BENCHMARK_DRIVERS_DIR"
-            npx npm-check-updates -u
-            yarn install
-        )
-    else
-        log "No benchmark-drivers sub-project found, skipping"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_dry "Would wait for CI checks and merge the PR"
+        return
     fi
 
-    log "Dependencies upgraded"
+    # Get the PR number for the current branch
+    local current_branch
+    current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+
+    if [[ ! "$current_branch" == feature/* ]]; then
+        log "Not on a feature branch, skipping merge"
+        return
+    fi
+
+    local pr_number
+    pr_number="$(gh pr list --head "$current_branch" --json number -q '.[0].number' 2>/dev/null || true)"
+
+    if [[ -z "$pr_number" ]]; then
+        echo "ERROR: Could not find PR number for branch: $current_branch" >&2
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+
+    log "Waiting for CI checks on PR #$pr_number..."
+
+    # Wait for checks to complete
+    if ! gh pr checks "$pr_number" --watch 2>/dev/null; then
+        echo "ERROR: CI checks failed for PR #$pr_number." >&2
+        echo "       Fix the issues and re-run this script, or merge manually." >&2
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+
+    log "CI checks passed, merging PR #$pr_number"
+    gh pr merge "$pr_number" --squash --delete-branch
+
+    log "Pulling merged changes..."
+    git checkout main
+    git pull origin main
 }
 
-step6_semver_check() {
-    log_step "6" "Run semver check"
+step4_release() {
+    log_step "4" "Determine if release is needed"
 
-    if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: node ${SEMVER_CHECK_SCRIPT}"
+    if [[ "$NO_RELEASE" == true ]]; then
+        log "Release step skipped (--no-release)"
         return
     fi
 
-    log "Checking dependency Node.js version compatibility..."
-    if ! node "${SEMVER_CHECK_SCRIPT}"; then
-        echo "" >&2
-        echo "ERROR: Semver check failed. Dependency Node.js version requirements exceed the minimum supported version." >&2
-        echo "       To fix this, update:" >&2
-        echo "         - supportedVersions in tools/semver-check.js" >&2
-        echo "         - engines.node in package.json" >&2
-        echo "         - Version references in README.md, docs/DEVELOP.md, and memory-bank/" >&2
-        echo "" >&2
-        echo "       Then re-run this script or manually continue with:" >&2
-        echo "         yarn rebuild && yarn lint --fix && yarn test" >&2
-        exit "$EXIT_SEMVER_FAIL"
-    fi
-
-    log "Semver check passed"
-}
-
-step7_rebuild() {
-    log_step "7" "Rebuild (yarn rebuild)"
-
-    if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: yarn rebuild"
-        return
-    fi
-
-    log "Rebuilding..."
-    cd "$PROJECT_ROOT"
-    if ! yarn rebuild; then
-        echo "ERROR: Build failed." >&2
-        exit "$EXIT_BUILD_FAIL"
-    fi
-
-    log "Build succeeded"
-}
-
-step8_lint() {
-    log_step "8" "Lint (yarn lint --fix)"
-
-    if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: yarn lint --fix"
-        return
-    fi
-
-    log "Running lint with auto-fix..."
-    cd "$PROJECT_ROOT"
-    if ! yarn lint --fix; then
-        echo "ERROR: Lint failed." >&2
-        exit "$EXIT_LINT_FAIL"
-    fi
-
-    log "Lint passed"
-}
-
-step9_test() {
-    log_step "9" "Run tests (yarn test)"
-
-    if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: yarn test"
-        return
-    fi
-
-    log "Running tests..."
-    cd "$PROJECT_ROOT"
-    if ! yarn test; then
-        echo "ERROR: Tests failed." >&2
-        exit "$EXIT_TEST_FAIL"
-    fi
-
-    log "Tests passed"
-}
-
-step10_commit() {
-    log_step "10" "Commit changes"
-
-    if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would stage and commit dependency upgrades"
-        return
-    fi
-
-    cd "$PROJECT_ROOT"
-
-    # Check if there are any changes to commit
-    if git diff --quiet HEAD 2>/dev/null && git diff --cached --quiet 2>/dev/null; then
-        log "No changes to commit — dependencies were already up to date"
-        return
-    fi
-
-    local commit_msg="Upgraded dependencies"
-
-    git add -A
-    git commit -m "$commit_msg"
-
-    log "Committed: ${commit_msg}"
-}
-
-step11_push() {
-    log_step "11" "Push to remote"
-
-    if [[ "$NO_PUSH" == true ]]; then
-        log "Push skipped (--no-push)"
+    if [[ "$NO_PR" == true ]]; then
+        log "Release step skipped (no PR was created)"
         return
     fi
 
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: git push origin HEAD"
+        log_dry "Would check if a release is needed and potentially bump patch version"
         return
     fi
 
-    cd "$PROJECT_ROOT"
-    git push -u origin HEAD
+    # Ensure we're on main after the merge
+    local current_branch
+    current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    if [[ "$current_branch" != "main" ]]; then
+        log "Not on main branch (on: ${current_branch}), skipping release"
+        return
+    fi
 
-    log "Pushed to remote"
+    # Check if release is needed:
+    #   - SQLite bump (deps/common-sqlite.gypi changed)
+    #   - Runtime dependency changes (dependencies or optionalDependencies in package.json)
+    local needs_release=false
+
+    # Check for SQLite bump in recent merge commit
+    if git log -1 --name-only --pretty=format: | grep -q "deps/common-sqlite.gypi"; then
+        log "SQLite bump detected in merged commit"
+        needs_release=true
+    fi
+
+    # Check if runtime dependencies changed
+    if git log -1 --name-only --pretty=format: | grep -q "package.json"; then
+        # Check if runtime dependencies (not just devDependencies) changed
+        if git diff HEAD~1 -- package.json | grep -qE '^\+.*"(node-addon-api|node-gyp-build|node-gyp)"'; then
+            log "Runtime dependency change detected"
+            needs_release=true
+        fi
+    fi
+
+    if [[ "$needs_release" == false ]]; then
+        log "No release needed — changes are dev-only"
+        return
+    fi
+
+    log "Bumping patch version..."
+    local old_version
+    old_version="$(node -p "require('${PROJECT_ROOT}/package.json').version")"
+    npm version patch --no-git-tag-version
+    local new_version
+    new_version="$(node -p "require('${PROJECT_ROOT}/package.json').version")"
+
+    git add package.json
+    git commit -m "chore: release v${new_version}"
+    git tag "v${new_version}"
+    git push origin main --tags
+
+    log "Version bumped: ${old_version} → ${new_version}"
+    log "Tag v${new_version} pushed to origin"
+    log ""
+    log "CI will create a pre-release with binaries at:"
+    log "  https://github.com/gms1/node-sqlite3/releases"
+    log ""
+    log "After reviewing the pre-release, publish to npm with:"
+    log "  gh workflow run publish.yml -f tag=v${new_version}"
 }
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║          Dependency Maintenance Script                      ║"
+    echo "║          Maintenance Script                                  ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
 
     parse_args "$@"
 
-    # Step 1: Check if source tree is clean
-    step1_check_clean_tree
+    # Preflight: verify SSH key and gh auth before starting
+    preflight_checks
 
-    # Step 2: Check for new SQLite version
-    # If a new SQLite version is available, bump-sqlite.sh handles everything
-    # (including creating a branch, building, testing, and pushing),
-    # so we exit after it runs.
-    local sqlite_bumped=false
-    if [[ "$SKIP_SQLITE" != true ]]; then
-        # step2_check_sqlite may exit the script if a bump was performed
-        step2_check_sqlite
-    fi
+    # Step 1: Run upgrade-deps.sh (handles SQLite bumps and dependency upgrades)
+    step1_upgrade
 
-    # Step 3: Check for dependency upgrades
-    local has_upgrades=true
-    if ! step3_check_deps; then
-        has_upgrades=false
-    fi
-
-    if [[ "$has_upgrades" == false ]]; then
-        echo ""
-        echo "╔══════════════════════════════════════════════════════════════╗"
-        echo "║          No upgrades needed. Everything is up to date!     ║"
-        echo "╚══════════════════════════════════════════════════════════════╝"
-        exit "$EXIT_SUCCESS"
-    fi
-
-    # Steps 4-11: Ensure branch, upgrade, verify, commit, push
-    step4_ensure_branch
-    step5_upgrade_deps
-    step6_semver_check
-    step7_rebuild
-    step8_lint
-    step9_test
-    step10_commit
-    step11_push
+    # Steps 2-4: PR, merge, release
+    step2_create_pr
+    step3_merge_pr
+    step4_release
 
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║          Dependency upgrade completed successfully!          ║"
+    echo "║          Maintenance completed successfully!                  ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
 }
 

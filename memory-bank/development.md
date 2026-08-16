@@ -237,23 +237,23 @@ Uses ESLint with configuration in `eslint.config.mjs`. Lints both `.js` and `.mj
 
 ### SQLite Version Bump
 
-The `tools/bin/bump-sqlite.sh` script automates upgrading the bundled SQLite version:
+The `tools/bin/upgrade-sqlite.sh` script automates upgrading the bundled SQLite version:
 
 ```bash
 # Show usage
-tools/bin/bump-sqlite.sh --help
+tools/bin/upgrade-sqlite.sh --help
 
 # Preview without making changes
-tools/bin/bump-sqlite.sh --dry-run
+tools/bin/upgrade-sqlite.sh --dry-run
 
 # Commit but don't push
-tools/bin/bump-sqlite.sh --no-push
+tools/bin/upgrade-sqlite.sh --no-push
 
 # Specify version explicitly
-tools/bin/bump-sqlite.sh 3510400
+tools/bin/upgrade-sqlite.sh 3510400
 
 # Skip cooldown period check
-tools/bin/bump-sqlite.sh --force 3510400
+tools/bin/upgrade-sqlite.sh --force 3510400
 ```
 
 ## Benchmarks

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# bump-sqlite.sh — Create a feature branch for upgrading the bundled SQLite version
+# upgrade-sqlite.sh — Create a feature branch for upgrading the bundled SQLite version
 #
-# Usage: bump-sqlite.sh [OPTIONS] [<new-version>]
+# Usage: upgrade-sqlite.sh [OPTIONS] [<new-version>]
 #
 # Options:
 #   --cooldown-days=N   Minimum days since SQLite release before allowing upgrade (default: 7)
@@ -93,7 +93,7 @@ EOF
 }
 
 log() {
-    echo "[bump-sqlite] $*"
+    echo "[upgrade-sqlite] $*"
 }
 
 log_step() {

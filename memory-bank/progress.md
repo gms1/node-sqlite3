@@ -44,7 +44,7 @@
 - Restored `action_before_build` target in `deps/sqlite3.gyp`
 - Extraction now goes to `<(SHARED_INTERMEDIATE_DIR)` (build intermediate directory)
 - `deps/extract.js` — pure Node.js zip extractor, accepts CLI arguments
-- Updated `tools/bin/bump-sqlite.sh`
+- Updated `tools/bin/upgrade-sqlite.sh`
 
 ### ESM + CJS Dual Support Implementation
 - CJS: `lib/sqlite3.js` → `lib/sqlite3-callback.js` + `lib/sqlite3-binding.js`
@@ -53,7 +53,7 @@
 - All 339 tests passing (277 CJS + 62 ESM)
 
 ### SQLite Version Bump Script
-- `tools/bin/bump-sqlite.sh` downloads amalgamation zip, extracts, commits
+- `tools/bin/upgrade-sqlite.sh` downloads amalgamation zip, extracts, commits
 - Version driven by `sqlite_version` in `deps/common-sqlite.gypi`
 
 ### fixed: queue processing deadlock in serialized mode

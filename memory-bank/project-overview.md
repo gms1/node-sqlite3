@@ -47,7 +47,9 @@ node-sqlite3/
 │   └── *.test.js               # CJS tests (239 tests)
 ├── tools/                      # Development tools
 │   ├── bin/                    # Utility scripts
-│   │   └── bump-sqlite.sh      # SQLite version bump automation
+│   │   ├── maintenance.sh      # Full maintenance cycle orchestrator
+│   │   ├── upgrade-deps.sh     # Dependency upgrade automation
+│   │   └── upgrade-sqlite.sh   # SQLite version upgrade automation
 │   ├── benchmark-drivers/      # Driver comparison benchmarks
 │   └── benchmark-internal/     # Internal performance benchmarks
 └── binding.gyp                 # node-gyp build configuration
