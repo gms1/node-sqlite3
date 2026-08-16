@@ -21,6 +21,7 @@ readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly SEMVER_CHECK_SCRIPT="${PROJECT_ROOT}/tools/semver-check.js"
 readonly BUMP_SQLITE_SCRIPT="${PROJECT_ROOT}/tools/bin/bump-sqlite.sh"
 readonly GYPI_FILE="${PROJECT_ROOT}/deps/common-sqlite.gypi"
+readonly BENCHMARK_DRIVERS_DIR="${PROJECT_ROOT}/tools/benchmark-drivers"
 readonly SQLITE_DOWNLOAD_URL="https://sqlite.org/download.html"
 readonly SQLITE_CHANGES_URL="https://sqlite.org/changes.html"
 
@@ -329,12 +330,12 @@ step5_upgrade_deps() {
     log_step "5" "Upgrade dependencies"
 
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: npx npm-check-updates -u && yarn install"
+        log_dry "Would run: npx npm-check-updates -u && yarn install (project root)"
+        log_dry "Would run: npx npm-check-updates -u && yarn install (benchmark-drivers)"
         return
     fi
 
     log "Upgrading dependencies..."
-    cd "$PROJECT_ROOT"
 
     # npm-check-updates updates version ranges in package.json to their latest
     # compatible versions (preserving range style: ^, ~, exact, etc.).
@@ -342,10 +343,22 @@ step5_upgrade_deps() {
     #   - Pinned versions like "mocha": "11.7.6" (yarn upgrade won't bump these)
     #   - Caret ranges like "eslint": "^10.6.0" (yarn upgrade installs the latest
     #     matching version but never updates the range in package.json)
-    npx npm-check-updates -u
 
-    # Reinstall to update yarn.lock with the newly resolved versions
+    # --- Main project ---
+    log "Upgrading main project dependencies..."
+    cd "$PROJECT_ROOT"
+    npx npm-check-updates -u
     yarn install
+
+    # --- Benchmark drivers sub-project ---
+    if [[ -f "${BENCHMARK_DRIVERS_DIR}/package.json" ]]; then
+        log "Upgrading benchmark-drivers dependencies..."
+        cd "$BENCHMARK_DRIVERS_DIR"
+        npx npm-check-updates -u
+        yarn install
+    else
+        log "No benchmark-drivers sub-project found, skipping"
+    fi
 
     log "Dependencies upgraded"
 }
