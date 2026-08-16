@@ -106,7 +106,7 @@ The script performs these steps:
 9. **Test** (`yarn test`) to verify functionality
 10. **Commit** and **push** the dependency upgrades
 
-> **Note:** If a SQLite bump was already applied (e.g., by a previous run or manually), the script will detect the existing `feature/*` branch and reuse it for the dependency upgrade commit.
+> **Note:** If you are already on a `feature/*` branch (e.g., left after a SQLite bump), the script will reuse it for the dependency upgrade commit rather than creating a new one.
 
 ## How to Bump SQLite
 
