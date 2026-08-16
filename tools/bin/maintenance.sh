@@ -329,13 +329,23 @@ step5_upgrade_deps() {
     log_step "5" "Upgrade dependencies"
 
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: yarn upgrade"
+        log_dry "Would run: npx npm-check-updates -u && yarn install"
         return
     fi
 
     log "Upgrading dependencies..."
     cd "$PROJECT_ROOT"
-    yarn upgrade
+
+    # npm-check-updates updates version ranges in package.json to their latest
+    # compatible versions (preserving range style: ^, ~, exact, etc.).
+    # This handles cases that plain "yarn upgrade" misses:
+    #   - Pinned versions like "mocha": "11.7.6" (yarn upgrade won't bump these)
+    #   - Caret ranges like "eslint": "^10.6.0" (yarn upgrade installs the latest
+    #     matching version but never updates the range in package.json)
+    npx npm-check-updates -u
+
+    # Reinstall to update yarn.lock with the newly resolved versions
+    yarn install
 
     log "Dependencies upgraded"
 }
