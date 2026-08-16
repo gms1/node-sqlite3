@@ -22,6 +22,13 @@ These instructions apply to all future sessions working in this project.
   - Wait for feedback before proceeding with other things or asking questions about other things.
   - Do not change the subject/topic.
 
+## Git Commits
+
+- When creating commits with AI assistance, always add a `Co-authored-by` trailer identifying the AI agent and model, e.g.:
+  ```
+  Co-authored-by: GLM-5.1 <glm-5.1@z.ai>
+  ```
+
 ## Coding
 
 - Do not add comments for trivial code, e.g:
