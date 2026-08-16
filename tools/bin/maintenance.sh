@@ -353,9 +353,11 @@ step5_upgrade_deps() {
     # --- Benchmark drivers sub-project ---
     if [[ -f "${BENCHMARK_DRIVERS_DIR}/package.json" ]]; then
         log "Upgrading benchmark-drivers dependencies..."
-        cd "$BENCHMARK_DRIVERS_DIR"
-        npx npm-check-updates -u
-        yarn install
+        (
+            cd "$BENCHMARK_DRIVERS_DIR"
+            npx npm-check-updates -u
+            yarn install
+        )
     else
         log "No benchmark-drivers sub-project found, skipping"
     fi
