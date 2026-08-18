@@ -22,12 +22,21 @@ These instructions apply to all future sessions working in this project.
   - Wait for feedback before proceeding with other things or asking questions about other things.
   - Do not change the subject/topic.
 
-## Git Commits
+## Git
 
-- When creating commits with AI assistance, always add a `Co-authored-by` trailer identifying both the AI agent and model, e.g.:
+### Commit workflow (mandatory)
+
+After implementing changes, follow this procedure:
+
+1. **Present a summary** of all changes made (files modified, added, deleted)
+2. **Stop and wait** for the user to explicitly request a commit — do NOT proceed to `git commit` on your own
+3. Only when the user explicitly asks to commit or amend, execute `git add` and `git commit` with a commit message that always contains a `Co-authored-by` trailer, identifying the AI agent and model used:
+
+  ```text
+  Co-authored-by: <AgentName> (<Model>) <email>
   ```
-  Co-authored-by: Zoo (GLM-5.1) <zoo@z.ai>
-  ```
+
+This checkpoint exists because implementing changes and committing them are separate concerns. The user may want to review, adjust, or split changes before they become part of the repository history.
 
 ## Coding
 

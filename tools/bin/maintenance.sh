@@ -22,6 +22,11 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly UPGRADE_DEPS_SCRIPT="${SCRIPT_DIR}/upgrade-deps.sh"
 
+# Determine the GitHub repo from the origin remote.
+# This is necessary because "gh" defaults to the upstream parent repo,
+# which may be archived (e.g. TryGhost/node-sqlite3). We want PRs on our fork.
+readonly GH_REPO="$(git -C "$PROJECT_ROOT" remote get-url origin | sed -E 's|.*github.com[:/]||;s|\.git$||')"
+
 # Exit codes
 readonly EXIT_SUCCESS=0
 readonly EXIT_GENERAL_ERROR=1
@@ -222,7 +227,7 @@ step2_create_pr() {
     local pr_body="Automated dependency upgrade via \`maintenance.sh\`."
 
     local pr_url
-    pr_url="$(gh pr create --title "$pr_title" --body "$pr_body" --base main 2>&1)" || {
+    pr_url="$(gh pr create --repo "$GH_REPO" --title "$pr_title" --body "$pr_body" --base main 2>&1)" || {
         echo "ERROR: Failed to create pull request." >&2
         echo "$pr_url" >&2
         exit "$EXIT_GENERAL_ERROR"
@@ -254,7 +259,7 @@ step3_merge_pr() {
     fi
 
     local pr_number
-    pr_number="$(gh pr list --head "$current_branch" --json number -q '.[0].number' 2>/dev/null || true)"
+    pr_number="$(gh pr list --repo "$GH_REPO" --head "$current_branch" --json number -q '.[0].number' 2>/dev/null || true)"
 
     if [[ -z "$pr_number" ]]; then
         echo "ERROR: Could not find PR number for branch: $current_branch" >&2
@@ -264,14 +269,14 @@ step3_merge_pr() {
     log "Waiting for CI checks on PR #$pr_number..."
 
     # Wait for checks to complete
-    if ! gh pr checks "$pr_number" --watch 2>/dev/null; then
+    if ! gh pr checks "$pr_number" --repo "$GH_REPO" --watch 2>/dev/null; then
         echo "ERROR: CI checks failed for PR #$pr_number." >&2
         echo "       Fix the issues and re-run this script, or merge manually." >&2
         exit "$EXIT_GENERAL_ERROR"
     fi
 
     log "CI checks passed, merging PR #$pr_number"
-    gh pr merge "$pr_number" --squash --delete-branch
+    gh pr merge "$pr_number" --repo "$GH_REPO" --squash --delete-branch
 
     log "Pulling merged changes..."
     git checkout main
@@ -348,7 +353,7 @@ step4_release() {
     log "  https://github.com/gms1/node-sqlite3/releases"
     log ""
     log "After reviewing the pre-release, publish to npm with:"
-    log "  gh workflow run publish.yml -f tag=v${new_version}"
+    log "  gh workflow run publish.yml --repo ${GH_REPO} -f tag=v${new_version}"
 }
 
 # ─── Main ────────────────────────────────────────────────────────────────────
