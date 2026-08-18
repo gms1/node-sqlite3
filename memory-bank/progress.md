@@ -1,6 +1,17 @@
 # Progress
 
+
+### Maintenance script restructuring and fixes (2026-08-18)
+- Renamed `maintenance.sh` → `upgrade-deps.sh`, `bump-sqlite.sh` → `upgrade-sqlite.sh`
+- Created new `maintenance.sh` as full-cycle orchestrator: upgrade → PR → merge → release
+- Added preflight checks (SSH key, `gh` auth) to `maintenance.sh`
+- Fixed `step3_check_deps` in `upgrade-deps.sh`: replaced `yarn outdated` with `npx npm-check-updates` to avoid false positives from transitive/sub-project deps
+- Fixed `gh` commands in `maintenance.sh` to use `--repo "$GH_REPO"` targeting our fork (`gms1/node-sqlite3`) instead of archived upstream (`TryGhost/node-sqlite3`)
+- Added AI co-author rule to `AGENTS.md` and `memory-bank/custom-instructions.md`
+- Updated `docs/DEVELOP.md` maintenance workflow section
+
 ### CI `gh release upload` glob pattern fix (2026-04-25)
+
 - Changed `prebuilds/*` to `prebuilds/*/*.node` in both `build` and `build-musl` upload steps
 - Added `shell: bash` to the `build` job's upload step for consistent glob expansion across platforms (especially Windows)
 - The `prebuilds/*` pattern matched directories like `prebuilds/linux-x64/` causing "is a directory" error

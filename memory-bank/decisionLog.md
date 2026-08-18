@@ -351,3 +351,20 @@ if (locked && pending == before_pending) {
 - Established test suite
 - Handles async operations well
 - Compatible with existing tests
+
+---
+
+### 2026-08-18: Maintenance Script Architecture and Dependency Upgrade Strategy
+
+**Decision**: Three-tier script hierarchy + `npm-check-updates` for dependency upgrades
+
+**Rationale**:
+- `yarn outdated` reports transitive and sub-project deps as outdated, causing false positives that trigger unnecessary PRs
+- `npm-check-updates` checks only direct dependencies in `package.json`, which is the actual signal for whether an upgrade is needed
+- Benchmark-drivers sub-project is only upgraded alongside the main project — not worth a separate PR on its own
+- `gh` CLI defaults to the upstream parent repo (TryGhost/node-sqlite3, archived), so `--repo` must be explicitly set to target our fork (gms1/node-sqlite3)
+
+**Script hierarchy**:
+- `maintenance.sh` — orchestrator: upgrade → PR → merge → release
+- `upgrade-deps.sh` — dependency upgrade logic (ncu + yarn install, semver check, build, test)
+- `upgrade-sqlite.sh` — SQLite version bump (download amalgamation, update gypi, build, test)
