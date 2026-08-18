@@ -328,8 +328,8 @@ step5_upgrade_deps() {
     log_step "5" "Upgrade dependencies"
 
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: npx npm-check-updates -u && yarn install (project root)"
-        log_dry "Would run: npx npm-check-updates -u && yarn install (benchmark-drivers)"
+        log_dry "Would run: npx npm-check-updates -u && yarn install && yarn audit fix (project root)"
+        log_dry "Would run: npx npm-check-updates -u && yarn install && yarn audit fix (benchmark-drivers)"
         return
     fi
 
@@ -347,6 +347,9 @@ step5_upgrade_deps() {
     cd "$PROJECT_ROOT"
     npx npm-check-updates -u
     yarn install
+    # yarn audit fix bumps transitive dependencies in the lock file that
+    # npm-check-updates cannot reach (it only touches package.json entries).
+    yarn audit fix || true
 
     # --- Benchmark drivers sub-project ---
     # Only upgraded alongside the main project — not worth a separate PR
@@ -356,6 +359,7 @@ step5_upgrade_deps() {
             cd "$BENCHMARK_DRIVERS_DIR"
             npx npm-check-updates -u
             yarn install
+            yarn audit fix || true
         )
     else
         log "No benchmark-drivers sub-project found, skipping"
