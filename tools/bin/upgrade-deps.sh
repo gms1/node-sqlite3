@@ -268,33 +268,31 @@ step3_check_deps() {
         return 1
     fi
 
+    # Use npm-check-updates to check the main project's package.json.
+    # This is more accurate than "yarn outdated" which reports transitive
+    # deps and sub-project deps that aren't actionable for the main project.
+    # The benchmark-drivers sub-project is only upgraded when the main
+    # project has updates — it's not worth a separate PR on its own.
+
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would check for outdated dependencies via yarn outdated"
-    else
-        log "Checking for outdated dependencies..."
-        local outdated
-        outdated="$(cd "$PROJECT_ROOT" && yarn outdated --format=json 2>/dev/null || true)"
-
-        if [[ -z "$outdated" ]] || [[ "$outdated" == "{}" ]]; then
-            log "All dependencies are up to date"
-            return 1
-        fi
-
-        # Show what's outdated
-        log "Outdated dependencies found:"
-        echo "$outdated" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    for pkg, info in data.items():
-        current = info.get('current', '?')
-        wanted = info.get('wanted', '?')
-        latest = info.get('latest', '?')
-        print(f'  {pkg}: {current} → {wanted} (latest: {latest})')
-except Exception:
-    pass
-" 2>/dev/null || log "(Could not parse yarn outdated output)"
+        log_dry "Would check for outdated dependencies via npm-check-updates"
+        return 0
     fi
+
+    log "Checking for outdated dependencies..."
+    local ncu_output
+    ncu_output="$(cd "$PROJECT_ROOT" && npx npm-check-updates 2>&1)" || true
+
+    # ncu exits 0 and prints "All dependencies match the latest package versions :)"
+    # when nothing needs updating
+    if echo "$ncu_output" | grep -q "All dependencies match"; then
+        log "All dependencies are up to date"
+        return 1
+    fi
+
+    # Show what would be updated
+    log "Outdated dependencies found:"
+    echo "$ncu_output" | sed 's/^/  /'
 
     return 0
 }
@@ -351,6 +349,7 @@ step5_upgrade_deps() {
     yarn install
 
     # --- Benchmark drivers sub-project ---
+    # Only upgraded alongside the main project — not worth a separate PR
     if [[ -f "${BENCHMARK_DRIVERS_DIR}/package.json" ]]; then
         log "Upgrading benchmark-drivers dependencies..."
         (
