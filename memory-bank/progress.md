@@ -1,6 +1,15 @@
 # Progress
 
 
+### CI checks false-negative fix in maintenance.sh (2026-08-22)
+- Fixed `step3_merge_pr()` in `maintenance.sh`: `gh pr checks --watch` returns non-zero when any check is not "pass", including skipped/neutral checks (e.g., `create-release`, `musl` that only run on tag events)
+- Replaced the `gh pr checks --watch` exit-code check with: (1) run `gh pr checks --watch` ignoring exit code, then (2) query GitHub API for `statusCheckRollup` with `conclusion == "failure"` to detect actual failures
+- Merged as PR #36
+
+### Dependency upgrade (2026-08-22)
+- Upgraded eslint from `^10.8.1` to `^10.9.0` (devDependencies)
+- Merged as PR #36
+
 ### Maintenance script restructuring and fixes (2026-08-18)
 - Renamed `maintenance.sh` → `upgrade-deps.sh`, `bump-sqlite.sh` → `upgrade-sqlite.sh`
 - Created new `maintenance.sh` as full-cycle orchestrator: upgrade → PR → merge → release

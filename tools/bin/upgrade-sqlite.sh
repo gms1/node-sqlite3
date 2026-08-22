@@ -5,7 +5,7 @@
 # Usage: upgrade-sqlite.sh [OPTIONS] [<new-version>]
 #
 # Options:
-#   --cooldown-days=N   Minimum days since SQLite release before allowing upgrade (default: 7)
+#   --cooldown-days=N   Minimum days since SQLite release before allowing upgrade (default: 3)
 #   --dry-run            Show what would be done without making changes
 #   --no-push            Commit but do not push to remote
 #   --force              Skip cooldown period check
@@ -41,7 +41,7 @@ readonly EXIT_TEST_FAIL=9
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
 
-COOLDOWN_DAYS=7
+COOLDOWN_DAYS=3
 DRY_RUN=false
 NO_PUSH=false
 FORCE=false

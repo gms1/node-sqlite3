@@ -145,7 +145,7 @@
 - 17-step workflow: parse args → clean tree → checkout main → fetch → check newer → cooldown → pull → create branch → download/replace → update gypi → update readme → check other changes → build → lint → test → commit → push
 - `FROM_VERSION` global variable set in step 5 (before any file modifications) and reused in steps 8, 9, 10 — avoids re-reading the gypi file after it has been updated
 - Auto-detection of latest SQLite version from sqlite.org download page (optional `<new-version>` argument)
-- Cooldown period (default 7 days) to let new SQLite releases settle before adoption
+- Cooldown period to let new SQLite releases settle before adoption
 
 **Files Created**:
 - `tools/bin/upgrade-sqlite.sh` — Main script
