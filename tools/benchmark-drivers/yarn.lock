@@ -2,12 +2,12 @@
 # yarn lockfile v1
 
 
-"@homeofthings/sqlite3@^7.0.4":
-  version "7.0.4"
-  resolved "https://registry.yarnpkg.com/@homeofthings/sqlite3/-/sqlite3-7.0.4.tgz#1044bfed96d2959e95d631b5093f9d4ebc3d0b4a"
-  integrity sha512-RrIhXFT/kXW6YLaLsNGN2WDlpIJqq9jUo+Nvfjzjut4CEIe63z3zuKGU2UA+A8+/DoyucIxLGZXwVcn6dFqbQg==
+"@homeofthings/sqlite3@^7.0.5":
+  version "7.0.5"
+  resolved "https://registry.yarnpkg.com/@homeofthings/sqlite3/-/sqlite3-7.0.5.tgz#85d523237067589a857b1294581f85e398e18bdb"
+  integrity sha512-GFNgQFSfQH527pdqrBYsrlAIUeAoBkaQMetNraVpCKCA8DwHy+H6fgOij4BDoMaxlL8a5bJ1GLbsg2r8lyDc9g==
   dependencies:
-    node-addon-api "^8.9.0"
+    node-addon-api "^8.9.2"
     node-gyp-build "^4.8.4"
   optionalDependencies:
     node-gyp "13.x"
@@ -203,7 +203,7 @@ next-tick@^1.1.0:
   resolved "https://registry.npmjs.org/next-tick/-/next-tick-1.1.0.tgz"
   integrity sha512-CXdUiJembsNjuToQvxayPZF9Vqht7hewsvy2sOWafLvi2awflj9mOC6bHIg50orX8IJvWKY9wYQ/zB2kogPslQ==
 
-node-addon-api@^8.0.0, node-addon-api@^8.9.0:
+node-addon-api@^8.0.0, node-addon-api@^8.9.2:
   version "8.9.2"
   resolved "https://registry.yarnpkg.com/node-addon-api/-/node-addon-api-8.9.2.tgz#db7ac94a13ffd9b55e6cb04584bd5ef8e1d74b18"
   integrity sha512-VijLXbi3UACN69I0JVXJsX4tjACjNoQDgv2gTF6sx2wWEi8tkSg2eX8p5gSIFi8z2+DL3oHmY6OyKce38SDolg==
