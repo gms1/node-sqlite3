@@ -268,9 +268,23 @@ step3_merge_pr() {
 
     log "Waiting for CI checks on PR #$pr_number..."
 
-    # Wait for checks to complete
-    if ! gh pr checks "$pr_number" --repo "$GH_REPO" --watch 2>/dev/null; then
-        echo "ERROR: CI checks failed for PR #$pr_number." >&2
+    # Wait for all checks to complete.
+    # Note: gh pr checks --watch returns non-zero if any check is not "pass",
+    # including skipped/neutral checks (e.g., create-release, musl on PR events).
+    # We ignore its exit code and instead check for actual failures via the API.
+    gh pr checks "$pr_number" --repo "$GH_REPO" --watch 2>/dev/null || true
+
+    # Check for actual failures using the GitHub API (more reliable than
+    # parsing gh pr checks output, which treats skipped as non-passing)
+    local failed_checks
+    failed_checks="$(gh pr view "$pr_number" --repo "$GH_REPO" \
+        --json statusCheckRollup \
+        --jq '.statusCheckRollup[] | select(.conclusion == "failure") | .name' \
+        2>/dev/null || true)"
+
+    if [[ -n "$failed_checks" ]]; then
+        echo "ERROR: CI checks failed for PR #$pr_number:" >&2
+        echo "$failed_checks" >&2
         echo "       Fix the issues and re-run this script, or merge manually." >&2
         exit "$EXIT_GENERAL_ERROR"
     fi
