@@ -181,7 +181,10 @@ parse_args() {
 step1_check_clean_tree() {
     log_step "1" "Check if source tree is clean"
 
-    if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+    # Scope all git commands to PROJECT_ROOT so the check inspects the
+    # node-sqlite3 repo, not whatever repository encloses the caller's
+    # current working directory (e.g. an enclosing parent repo).
+    if ! git -C "$PROJECT_ROOT" diff --quiet HEAD 2>/dev/null || ! git -C "$PROJECT_ROOT" diff --cached --quiet 2>/dev/null; then
         echo "ERROR: Source tree has uncommitted changes. Please commit or stash first." >&2
         if [[ "$DRY_RUN" == true ]]; then
             log_dry "Would exit with ${EXIT_DIRTY_TREE}"
@@ -191,7 +194,7 @@ step1_check_clean_tree() {
     fi
 
     local untracked
-    untracked="$(git ls-files --others --exclude-standard 2>/dev/null || true)"
+    untracked="$(git -C "$PROJECT_ROOT" ls-files --others --exclude-standard 2>/dev/null || true)"
     if [[ -n "$untracked" ]]; then
         log "WARNING: There are untracked files in the working tree:"
         echo "$untracked" | head -5 | sed 's/^/  /'
@@ -281,7 +284,7 @@ step3_check_deps() {
 
     log "Checking for outdated dependencies..."
     local ncu_output
-    ncu_output="$(cd "$PROJECT_ROOT" && npx npm-check-updates 2>&1)" || true
+    ncu_output="$(cd "$PROJECT_ROOT" && npx --yes npm-check-updates 2>&1)" || true
 
     # ncu exits 0 and prints "All dependencies match the latest package versions :)"
     # when nothing needs updating
@@ -328,8 +331,8 @@ step5_upgrade_deps() {
     log_step "5" "Upgrade dependencies"
 
     if [[ "$DRY_RUN" == true ]]; then
-        log_dry "Would run: npx npm-check-updates -u && yarn install && yarn audit fix (project root)"
-        log_dry "Would run: npx npm-check-updates -u && yarn install && yarn audit fix (benchmark-drivers)"
+        log_dry "Would run: npx --yes npm-check-updates -u && yarn install && yarn audit fix (project root)"
+        log_dry "Would run: npx --yes npm-check-updates -u && yarn install && yarn audit fix (benchmark-drivers)"
         return
     fi
 
@@ -345,7 +348,7 @@ step5_upgrade_deps() {
     # --- Main project ---
     log "Upgrading main project dependencies..."
     cd "$PROJECT_ROOT"
-    npx npm-check-updates -u
+    npx --yes npm-check-updates -u
     yarn install
     # yarn audit fix bumps transitive dependencies in the lock file that
     # npm-check-updates cannot reach (it only touches package.json entries).
@@ -357,7 +360,7 @@ step5_upgrade_deps() {
         log "Upgrading benchmark-drivers dependencies..."
         (
             cd "$BENCHMARK_DRIVERS_DIR"
-            npx npm-check-updates -u
+            npx --yes npm-check-updates -u
             yarn install
             yarn audit fix || true
         )
