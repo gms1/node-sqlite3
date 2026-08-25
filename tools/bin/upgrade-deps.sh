@@ -500,6 +500,8 @@ main() {
     echo "║          Dependency Maintenance Script                      ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
 
+    cd "$PROJECT_ROOT"
+
     parse_args "$@"
 
     # Step 1: Check if source tree is clean

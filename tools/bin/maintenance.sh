@@ -377,6 +377,8 @@ main() {
     echo "║          Maintenance Script                                  ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
 
+    cd "$PROJECT_ROOT"
+
     parse_args "$@"
 
     # Preflight: verify SSH key and gh auth before starting
