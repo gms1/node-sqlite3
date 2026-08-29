@@ -176,6 +176,27 @@ parse_args() {
     done
 }
 
+# ─── Preflight Checks ────────────────────────────────────────────────────────
+
+preflight_checks() {
+    # Check connectivity to the git remote (needed for git push).
+    # ssh-add -l only verifies a key is loaded in the agent, not that it
+    # actually works with the remote.  Use git ls-remote to test the real
+    # authentication path — this covers SSH keys, HTTPS credential helpers,
+    # and any other auth mechanism configured for the remote.
+    if [[ "$NO_PUSH" != true ]]; then
+        if ! git -C "$PROJECT_ROOT" ls-remote origin HEAD &>/dev/null; then
+            echo "ERROR: Cannot reach the git remote. Check your SSH key or credentials." >&2
+            echo "       For SSH: ensure your key is loaded (ssh-add) and added to your account." >&2
+            echo "       Or use --no-push to skip pushing." >&2
+            exit "$EXIT_GENERAL_ERROR"
+        fi
+        log "Remote auth: OK"
+    else
+        log "Remote auth: skipped (--no-push)"
+    fi
+}
+
 # ─── Step Implementations ────────────────────────────────────────────────────
 
 step1_check_clean_tree() {
@@ -503,6 +524,9 @@ main() {
     cd "$PROJECT_ROOT"
 
     parse_args "$@"
+
+    # Preflight: verify SSH connectivity before starting work
+    preflight_checks
 
     # Step 1: Check if source tree is clean
     step1_check_clean_tree

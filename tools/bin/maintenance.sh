@@ -148,15 +148,21 @@ parse_args() {
 preflight_checks() {
     log "Running preflight checks..."
 
-    # Check SSH key availability (needed for git push)
+    # Check connectivity to the git remote (needed for git push).
+    # ssh-add -l only verifies a key is loaded in the agent, not that it
+    # actually works with the remote.  Use git ls-remote to test the real
+    # authentication path — this covers SSH keys, HTTPS credential helpers,
+    # and any other auth mechanism configured for the remote.
     if [[ "$NO_PUSH" != true ]]; then
-        if ! ssh-add -l &>/dev/null; then
-            echo "ERROR: No SSH key loaded in ssh-agent. Run 'ssh-add' first, or use --no-push." >&2
+        if ! git -C "$PROJECT_ROOT" ls-remote origin HEAD &>/dev/null; then
+            echo "ERROR: Cannot reach the git remote. Check your SSH key or credentials." >&2
+            echo "       For SSH: ensure your key is loaded (ssh-add) and added to your account." >&2
+            echo "       Or use --no-push to skip pushing." >&2
             exit "$EXIT_GENERAL_ERROR"
         fi
-        log "SSH key: OK"
+        log "Remote auth: OK"
     else
-        log "SSH key: skipped (--no-push)"
+        log "Remote auth: skipped (--no-push)"
     fi
 
     # Check gh CLI authentication (needed for PR create, merge, and release)
@@ -268,24 +274,47 @@ step3_merge_pr() {
 
     log "Waiting for CI checks on PR #$pr_number..."
 
-    # Wait for all checks to complete.
-    # Note: gh pr checks --watch returns non-zero if any check is not "pass",
-    # including skipped/neutral checks (e.g., create-release, musl on PR events).
-    # We ignore its exit code and instead check for actual failures via the API.
-    gh pr checks "$pr_number" --repo "$GH_REPO" --watch 2>/dev/null || true
+    # Poll the GitHub API until all checks reach a terminal state.
+    # gh pr checks --watch returns immediately when checks haven't started
+    # yet (e.g. GitHub Actions still queued), causing a false "all passed".
+    local max_wait=1800  # 30 minutes
+    local poll_interval=30
+    local elapsed=0
 
-    # Check for actual failures using the GitHub API (more reliable than
-    # parsing gh pr checks output, which treats skipped as non-passing)
-    local failed_checks
-    failed_checks="$(gh pr view "$pr_number" --repo "$GH_REPO" \
-        --json statusCheckRollup \
-        --jq '.statusCheckRollup[] | select(.conclusion == "failure") | .name' \
-        2>/dev/null || true)"
+    while [[ $elapsed -lt $max_wait ]]; do
+        # Check for failures first — fail fast
+        local failed_checks
+        failed_checks="$(gh pr view "$pr_number" --repo "$GH_REPO" \
+            --json statusCheckRollup \
+            --jq '.statusCheckRollup[] | select(.conclusion == "failure") | .name' \
+            2>/dev/null || true)"
 
-    if [[ -n "$failed_checks" ]]; then
-        echo "ERROR: CI checks failed for PR #$pr_number:" >&2
-        echo "$failed_checks" >&2
-        echo "       Fix the issues and re-run this script, or merge manually." >&2
+        if [[ -n "$failed_checks" ]]; then
+            echo "ERROR: CI checks failed for PR #$pr_number:" >&2
+            echo "$failed_checks" >&2
+            echo "       Fix the issues and re-run this script, or merge manually." >&2
+            exit "$EXIT_GENERAL_ERROR"
+        fi
+
+        # Count checks still running or queued (no conclusion yet)
+        local pending
+        pending="$(gh pr view "$pr_number" --repo "$GH_REPO" \
+            --json statusCheckRollup \
+            --jq '.statusCheckRollup[] | select(.conclusion == null) | .name' \
+            2>/dev/null || true)"
+
+        if [[ -z "$pending" ]]; then
+            # All checks have a conclusion and none failed
+            break
+        fi
+
+        log "CI still running (${elapsed}s elapsed): $(echo "$pending" | tr '\n' ', ' | sed 's/,$//')"
+        sleep "$poll_interval"
+        elapsed=$((elapsed + poll_interval))
+    done
+
+    if [[ $elapsed -ge $max_wait ]]; then
+        echo "ERROR: Timed out waiting for CI checks on PR #$pr_number after $((max_wait / 60)) minutes." >&2
         exit "$EXIT_GENERAL_ERROR"
     fi
 
