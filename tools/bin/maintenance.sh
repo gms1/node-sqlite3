@@ -274,11 +274,42 @@ step3_merge_pr() {
 
     log "Waiting for CI checks on PR #$pr_number..."
 
-    # Poll the GitHub API until all checks reach a terminal state.
+    local poll_interval=30
+
+    # Phase 1: Wait for at least one CI check to appear in the rollup.
+    # When a PR is first created, GitHub Actions may not have registered
+    # any checks yet, so statusCheckRollup is empty.  The completion loop
+    # below would incorrectly treat an empty rollup as "all passed".
+    local startup_max=300  # 5 minutes max to wait for checks to appear
+    local startup_elapsed=0
+
+    while [[ $startup_elapsed -lt $startup_max ]]; do
+        local check_count
+        check_count="$(gh pr view "$pr_number" --repo "$GH_REPO" \
+            --json statusCheckRollup \
+            --jq '.statusCheckRollup | length' \
+            2>/dev/null || echo 0)"
+
+        if [[ "$check_count" -gt 0 ]]; then
+            log "CI checks registered (${check_count} check(s) found)"
+            break
+        fi
+
+        log "No CI checks registered yet (${startup_elapsed}s elapsed)..."
+        sleep "$poll_interval"
+        startup_elapsed=$((startup_elapsed + poll_interval))
+    done
+
+    if [[ $startup_elapsed -ge $startup_max ]]; then
+        echo "ERROR: No CI checks appeared for PR #$pr_number after $((startup_max / 60)) minutes." >&2
+        echo "       This may indicate the CI workflow was not triggered." >&2
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+
+    # Phase 2: Poll until all checks reach a terminal state (have a conclusion).
     # gh pr checks --watch returns immediately when checks haven't started
     # yet (e.g. GitHub Actions still queued), causing a false "all passed".
     local max_wait=1800  # 30 minutes
-    local poll_interval=30
     local elapsed=0
 
     while [[ $elapsed -lt $max_wait ]]; do

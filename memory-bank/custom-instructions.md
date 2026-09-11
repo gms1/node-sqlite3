@@ -26,17 +26,25 @@ These instructions apply to all future sessions working in this project.
 
 ### Commit workflow (mandatory)
 
+**Never** perform any of the following actions unless the user has explicitly asked for it:
+
+- `git commit` / `git commit --amend`
+- `git push`
+- `gh pr create`
+- `gh pr merge`
+- Any other command that alters the remote repository or its history
+
 After implementing changes, follow this procedure:
 
 1. **Present a summary** of all changes made (files modified, added, deleted)
-2. **Stop and wait** for the user to explicitly request a commit — do NOT proceed to `git commit` on your own
-3. Only when the user explicitly asks to commit or amend, execute `git add` and `git commit` with a commit message that always contains a `Co-authored-by` trailer, identifying the AI agent and model used:
+2. **Stop and wait** for the user to explicitly request the next step (e.g. commit, push, create PR)
+3. Only when the user explicitly asks, proceed — and for commits, always include a `Co-authored-by` trailer identifying the AI agent and model used:
 
-  ```text
-  Co-authored-by: <AgentName> (<Model>) <email>
-  ```
+   ```text
+   Co-authored-by: <AgentName> (<Model>) <email>
+   ```
 
-This checkpoint exists because implementing changes and committing them are separate concerns. The user may want to review, adjust, or split changes before they become part of the repository history.
+This checkpoint exists because implementing changes, committing them, and publishing them are separate concerns. The user may want to review, adjust, or split changes before they become part of the repository history, and may want to control when and how changes reach the remote.
 
 ## Coding
 
