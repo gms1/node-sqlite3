@@ -309,8 +309,13 @@ step3_merge_pr() {
     # Phase 2: Poll until all checks reach a terminal state (have a conclusion).
     # gh pr checks --watch returns immediately when checks haven't started
     # yet (e.g. GitHub Actions still queued), causing a false "all passed".
+    # New checks can also appear mid-run (e.g. build matrix jobs that depend
+    # on lint passing), so we require the check count to stabilize before
+    # declaring success.
     local max_wait=1800  # 30 minutes
     local elapsed=0
+    local prev_check_count=0
+    local all_complete_stable=false
 
     while [[ $elapsed -lt $max_wait ]]; do
         # Check for failures first — fail fast
@@ -334,12 +339,44 @@ step3_merge_pr() {
             --jq '.statusCheckRollup[] | select(.conclusion == null) | .name' \
             2>/dev/null || true)"
 
-        if [[ -z "$pending" ]]; then
-            # All checks have a conclusion and none failed
+        if [[ -n "$pending" ]]; then
+            # Checks still in progress — reset stability tracker
+            all_complete_stable=false
+            prev_check_count=0
+            log "CI still running (${elapsed}s elapsed): $(echo "$pending" | tr '\n' ', ' | sed 's/,$//')"
+            sleep "$poll_interval"
+            elapsed=$((elapsed + poll_interval))
+            continue
+        fi
+
+        # All current checks have conclusions — but new checks might still
+        # appear (e.g. build jobs triggered after lint passes).  Require the
+        # check count to be stable across two consecutive polls.
+        local check_count
+        check_count="$(gh pr view "$pr_number" --repo "$GH_REPO" \
+            --json statusCheckRollup \
+            --jq '.statusCheckRollup | length' \
+            2>/dev/null || echo 0)"
+
+        if [[ "$check_count" -gt "$prev_check_count" ]]; then
+            # New checks appeared since last poll — reset and keep waiting
+            log "New checks registered (${check_count} total), waiting for completion..."
+            prev_check_count="$check_count"
+            all_complete_stable=false
+            sleep "$poll_interval"
+            elapsed=$((elapsed + poll_interval))
+            continue
+        fi
+
+        if [[ "$all_complete_stable" == true ]]; then
+            # Check count is stable and all have conclusions — safe to proceed
             break
         fi
 
-        log "CI still running (${elapsed}s elapsed): $(echo "$pending" | tr '\n' ', ' | sed 's/,$//')"
+        # First poll where all checks appear complete — mark stable and
+        # do one more confirmation poll after waiting.
+        log "All checks complete (${check_count} total), verifying stability..."
+        all_complete_stable=true
         sleep "$poll_interval"
         elapsed=$((elapsed + poll_interval))
     done

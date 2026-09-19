@@ -1,10 +1,12 @@
 # Progress
 
 
-### CI checks false-positive fix in maintenance.sh (2026-09-11)
-- Fixed `step3_merge_pr()` in `maintenance.sh`: when a PR is freshly created, GitHub Actions hasn't registered any checks yet, so `statusCheckRollup` is empty. The completion loop interpreted an empty rollup as "all checks passed" and merged prematurely.
-- Added Phase 1: poll until at least one CI check appears in `statusCheckRollup` (5-minute timeout), before entering the Phase 2 completion loop.
-- This complements the earlier fix (PR #36) that handled false-negatives from skipped/neutral checks.
+### CI checks false-positive fix in maintenance.sh (2026-09-19)
+- Fixed `step3_merge_pr()` in `maintenance.sh`: two related bugs caused premature PR merges:
+  1. **Empty rollup bug**: When a PR is freshly created, GitHub Actions hasn't registered any checks yet, so `statusCheckRollup` is empty. The completion loop interpreted an empty rollup as "all checks passed."
+  2. **Stale rollup bug**: Fast checks (lint, verify-version, CodeQL) complete quickly, but slow build jobs depend on them and register later. The loop saw all current checks had conclusions and merged before the build jobs even appeared.
+- Fix: Added Phase 1 (wait for at least one check to register) and Phase 2 stabilization (require the check count to be stable across two consecutive polls before declaring all checks complete).
+- PR #40 addressed the empty rollup bug; PR #41 still hit the stale rollup bug. This fix addresses both.
 
 ### CI checks false-negative fix in maintenance.sh (2026-08-22)
 - Fixed `step3_merge_pr()` in `maintenance.sh`: `gh pr checks --watch` returns non-zero when any check is not "pass", including skipped/neutral checks (e.g., `create-release`, `musl` that only run on tag events)
