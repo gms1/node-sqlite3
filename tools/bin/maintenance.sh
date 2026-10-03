@@ -274,117 +274,90 @@ step3_merge_pr() {
 
     log "Waiting for CI checks on PR #$pr_number..."
 
+    # Get the PR head SHA — workflow runs are keyed by commit, not PR.
+    local head_sha
+    head_sha="$(gh pr view "$pr_number" --repo "$GH_REPO" --json headRefOid -q '.headRefOid' 2>/dev/null || true)"
+
+    if [[ -z "$head_sha" ]]; then
+        echo "ERROR: Could not determine head SHA for PR #$pr_number." >&2
+        exit "$EXIT_GENERAL_ERROR"
+    fi
+
+    # Wait for CI by polling the workflow RUN objects for the PR head SHA
+    # instead of statusCheckRollup.  statusCheckRollup only contains check
+    # runs for jobs that have already STARTED, so jobs queued behind a busy
+    # runner (e.g. the 12-job build matrix) are invisible to it — any fixed
+    # stabilization window can be exceeded by runner allocation delays,
+    # causing premature merges.  A workflow run stays queued/in_progress
+    # until ALL its jobs are done, making it a reliable completion signal.
     local poll_interval=30
-
-    # Phase 1: Wait for at least one CI check to appear in the rollup.
-    # When a PR is first created, GitHub Actions may not have registered
-    # any checks yet, so statusCheckRollup is empty.  The completion loop
-    # below would incorrectly treat an empty rollup as "all passed".
-    local startup_max=300  # 5 minutes max to wait for checks to appear
+    local startup_max=300   # 5 min max to wait for runs to appear
+    local run_max_wait=3600 # 60 min max to wait for runs to complete
     local startup_elapsed=0
+    local elapsed=0
 
+    # Phase 1: Wait for at least one workflow run to appear for this commit.
     while [[ $startup_elapsed -lt $startup_max ]]; do
-        local check_count
-        check_count="$(gh pr view "$pr_number" --repo "$GH_REPO" \
-            --json statusCheckRollup \
-            --jq '.statusCheckRollup | length' \
-            2>/dev/null || echo 0)"
+        local run_count
+        run_count="$(gh run list --repo "$GH_REPO" --commit "$head_sha" \
+            --json databaseId --limit 100 --jq 'length' 2>/dev/null || echo 0)"
 
-        if [[ "$check_count" -gt 0 ]]; then
-            log "CI checks registered (${check_count} check(s) found)"
+        if [[ "$run_count" -gt 0 ]]; then
+            log "CI workflow runs registered (${run_count} run(s) for ${head_sha:0:12})"
             break
         fi
 
-        log "No CI checks registered yet (${startup_elapsed}s elapsed)..."
+        log "No CI workflow runs registered yet (${startup_elapsed}s elapsed)..."
         sleep "$poll_interval"
         startup_elapsed=$((startup_elapsed + poll_interval))
     done
 
     if [[ $startup_elapsed -ge $startup_max ]]; then
-        echo "ERROR: No CI checks appeared for PR #$pr_number after $((startup_max / 60)) minutes." >&2
+        echo "ERROR: No CI workflow runs appeared for PR #$pr_number after $((startup_max / 60)) minutes." >&2
         echo "       This may indicate the CI workflow was not triggered." >&2
         exit "$EXIT_GENERAL_ERROR"
     fi
 
-    # Phase 2: Poll until all checks reach a terminal state (have a conclusion).
-    # gh pr checks --watch returns immediately when checks haven't started
-    # yet (e.g. GitHub Actions still queued), causing a false "all passed".
-    # New checks can also appear mid-run (e.g. build matrix jobs that depend
-    # on lint passing), so we require the check count to stabilize before
-    # declaring success.
-    local max_wait=1800  # 30 minutes
-    local elapsed=0
-    local prev_check_count=0
-    local all_complete_stable=false
-
-    while [[ $elapsed -lt $max_wait ]]; do
-        # Check for failures first — fail fast
-        local failed_checks
-        failed_checks="$(gh pr view "$pr_number" --repo "$GH_REPO" \
-            --json statusCheckRollup \
-            --jq '.statusCheckRollup[] | select(.conclusion == "failure") | .name' \
+    # Phase 2: Wait for all workflow runs for this commit to complete.
+    while [[ $elapsed -lt $run_max_wait ]]; do
+        # Fail fast if any run completed with a non-success conclusion
+        local failed_runs
+        failed_runs="$(gh run list --repo "$GH_REPO" --commit "$head_sha" \
+            --json status,conclusion,name --limit 100 \
+            --jq '.[] | select(.status == "completed") | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral") | .name' \
             2>/dev/null || true)"
 
-        if [[ -n "$failed_checks" ]]; then
+        if [[ -n "$failed_runs" ]]; then
             echo "ERROR: CI checks failed for PR #$pr_number:" >&2
-            echo "$failed_checks" >&2
+            echo "$failed_runs" >&2
             echo "       Fix the issues and re-run this script, or merge manually." >&2
             exit "$EXIT_GENERAL_ERROR"
         fi
 
-        # Count checks still running or queued (no conclusion yet)
-        local pending
-        pending="$(gh pr view "$pr_number" --repo "$GH_REPO" \
-            --json statusCheckRollup \
-            --jq '.statusCheckRollup[] | select(.conclusion == null) | .name' \
+        # Any run still queued or in progress?
+        local active_runs
+        active_runs="$(gh run list --repo "$GH_REPO" --commit "$head_sha" \
+            --json status,name --limit 100 \
+            --jq '.[] | select(.status != "completed") | .name' \
             2>/dev/null || true)"
 
-        if [[ -n "$pending" ]]; then
-            # Checks still in progress — reset stability tracker
-            all_complete_stable=false
-            prev_check_count=0
-            log "CI still running (${elapsed}s elapsed): $(echo "$pending" | tr '\n' ', ' | sed 's/,$//')"
+        if [[ -n "$active_runs" ]]; then
+            log "CI still running (${elapsed}s elapsed): $(echo "$active_runs" | tr '\n' ', ' | sed 's/,$//')"
             sleep "$poll_interval"
             elapsed=$((elapsed + poll_interval))
             continue
         fi
 
-        # All current checks have conclusions — but new checks might still
-        # appear (e.g. build jobs triggered after lint passes).  Require the
-        # check count to be stable across two consecutive polls.
-        local check_count
-        check_count="$(gh pr view "$pr_number" --repo "$GH_REPO" \
-            --json statusCheckRollup \
-            --jq '.statusCheckRollup | length' \
-            2>/dev/null || echo 0)"
-
-        if [[ "$check_count" -gt "$prev_check_count" ]]; then
-            # New checks appeared since last poll — reset and keep waiting
-            log "New checks registered (${check_count} total), waiting for completion..."
-            prev_check_count="$check_count"
-            all_complete_stable=false
-            sleep "$poll_interval"
-            elapsed=$((elapsed + poll_interval))
-            continue
-        fi
-
-        if [[ "$all_complete_stable" == true ]]; then
-            # Check count is stable and all have conclusions — safe to proceed
-            break
-        fi
-
-        # First poll where all checks appear complete — mark stable and
-        # do one more confirmation poll after waiting.
-        log "All checks complete (${check_count} total), verifying stability..."
-        all_complete_stable=true
-        sleep "$poll_interval"
-        elapsed=$((elapsed + poll_interval))
+        # All runs completed successfully
+        break
     done
 
-    if [[ $elapsed -ge $max_wait ]]; then
-        echo "ERROR: Timed out waiting for CI checks on PR #$pr_number after $((max_wait / 60)) minutes." >&2
+    if [[ $elapsed -ge $run_max_wait ]]; then
+        echo "ERROR: Timed out waiting for CI checks on PR #$pr_number after $((run_max_wait / 60)) minutes." >&2
         exit "$EXIT_GENERAL_ERROR"
     fi
+
+    log "All CI workflow runs completed successfully"
 
     log "CI checks passed, merging PR #$pr_number"
     gh pr merge "$pr_number" --repo "$GH_REPO" --squash --delete-branch

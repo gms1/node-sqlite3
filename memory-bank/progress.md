@@ -1,12 +1,11 @@
 # Progress
 
 
-### CI checks false-positive fix in maintenance.sh (2026-09-19)
-- Fixed `step3_merge_pr()` in `maintenance.sh`: two related bugs caused premature PR merges:
-  1. **Empty rollup bug**: When a PR is freshly created, GitHub Actions hasn't registered any checks yet, so `statusCheckRollup` is empty. The completion loop interpreted an empty rollup as "all checks passed."
-  2. **Stale rollup bug**: Fast checks (lint, verify-version, CodeQL) complete quickly, but slow build jobs depend on them and register later. The loop saw all current checks had conclusions and merged before the build jobs even appeared.
-- Fix: Added Phase 1 (wait for at least one check to register) and Phase 2 stabilization (require the check count to be stable across two consecutive polls before declaring all checks complete).
-- PR #40 addressed the empty rollup bug; PR #41 still hit the stale rollup bug. This fix addresses both.
+### CI premature-merge fix in maintenance.sh (2026-10-03)
+- Fixed `step3_merge_pr()` in `maintenance.sh`: PRs #39, #41, #43 were all merged before CI completed. Root cause across all attempts: `statusCheckRollup` only contains check runs for jobs that have already STARTED — jobs queued behind a busy runner (the 12-job build matrix) are invisible to it, so any rollup-based polling (empty-check wait, conclusion-poll, count-stabilization) can be fooled.
+- Fix: poll the workflow RUN objects (`gh run list --commit <head_sha>`) instead. A run stays queued/in_progress until ALL its jobs are done, making it a reliable completion signal. Two phases: wait for ≥1 run to appear (5-min timeout), then wait until no run has status != completed (60-min timeout), failing fast on any non-success/skipped/neutral conclusion.
+- Verified live: for PR #43's head SHA, run list showed `in_progress` while rollup-based checks had already claimed "all passed."
+- Earlier attempts (PR #40 empty-rollup wait, 2026-09-19 count-stabilization) were insufficient; both removed in favor of the run-based approach.
 
 ### CI checks false-negative fix in maintenance.sh (2026-08-22)
 - Fixed `step3_merge_pr()` in `maintenance.sh`: `gh pr checks --watch` returns non-zero when any check is not "pass", including skipped/neutral checks (e.g., `create-release`, `musl` that only run on tag events)
