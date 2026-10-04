@@ -1,6 +1,16 @@
 # Progress
 
 
+### CI version-pins check added to maintenance workflow (2026-10-04)
+- New `tools/bin/check-versions.sh`: warning-only, read-only check reporting newer versions for the values pinned in the GitHub Actions workflows — Node.js default/prebuild, Electron, Alpine variant, Ubuntu runner labels
+- Integrated as step 5 of `maintenance.sh`, skippable with `--skip-version-check`; never fails the maintenance cycle (missing/broken script degrades to a warning)
+- Output modes: compact actionable summary by default; full per-item table via `--verbose`; `--no-network` lists pinned values only (implies `--verbose`)
+- Node prebuild policy: a supported LTS line is fine (v22 pin is OK even though 24 is the newest LTS); EOL warning ~1 month before the pinned major's end date (Node release schedule); the newest LTS major is reported as the available prebuild version only after EOL
+- Data sources (curl fetch + node JSON parsing, per-item "skipped" degradation): nodejs.org index.json, nodejs/release schedule.json, npm registry electron dist-tags, alpinelinux.org releases.json, actions/runner-images README, endoflife.date ubuntu API
+- Pinned values are read live from the workflow files (never hardcoded); shellcheck clean; both EOL branches verified with simulated schedules
+- Dependabot: added `github-actions` ecosystem for `actions/*` pin updates; fixed pre-existing invalid `"yarn"` ecosystem (not in the Dependabot schema, so updates silently never ran) → `"npm"` (yarn.lock is covered — it is an npm-registry lockfile)
+- Fixed `maintenance.sh` SC2155 issues (readonly+assignment masking exit status); updated `docs/DEVELOP.md`
+
 ### CI premature-merge fix in maintenance.sh (2026-10-03)
 - Fixed `step3_merge_pr()` in `maintenance.sh`: PRs #39, #41, #43 were all merged before CI completed. Root cause across all attempts: `statusCheckRollup` only contains check runs for jobs that have already STARTED — jobs queued behind a busy runner (the 12-job build matrix) are invisible to it, so any rollup-based polling (empty-check wait, conclusion-poll, count-stabilization) can be fooled.
 - Fix: poll the workflow RUN objects (`gh run list --commit <head_sha>`) instead. A run stays queued/in_progress until ALL its jobs are done, making it a reliable completion signal. Two phases: wait for ≥1 run to appear (5-min timeout), then wait until no run has status != completed (60-min timeout), failing fast on any non-success/skipped/neutral conclusion.

@@ -354,6 +354,22 @@ if (locked && pending == before_pending) {
 
 ---
 
+### 2026-10-04: CI Version-Pins Check — Warning-Only Design and Node Prebuild LTS Policy
+
+**Decision**: Add `tools/bin/check-versions.sh` as a warning-only, read-only step 5 of `maintenance.sh`; Node prebuild follows a supported-LTS (not newest-LTS) policy with a ~1-month EOL warning
+
+**Rationale**:
+- The workflow pins (Node, Electron, Alpine, Ubuntu runners) are external versions no existing tooling covers; the check only needs to *warn* — it must never fail or block the maintenance cycle, so every failure mode (source unreachable, unparsable, pin missing) degrades to a per-item "skipped" notice and the script always exits 0
+- Pinned GitHub Actions versions (`actions/checkout@v6` etc.) are deliberately NOT checked here: Dependabot `github-actions` ecosystem covers them via weekly PRs. Found and fixed a pre-existing bug while adding it: `"yarn"` is not a valid Dependabot ecosystem (updates silently never ran) — replaced with `"npm"` (yarn.lock is an npm-registry lockfile and is covered)
+- Fetching via curl + JSON parsing via inline `node` snippets (payload via stdin, expressions via env var): Node ≥ 22 is guaranteed wherever `maintenance.sh` runs; grep/sed JSON parsing is brittle
+- Node prebuild policy: prebuild binary compatibility only needs a *supported* LTS line, so a pin that lags the newest LTS major (22 vs 24 today) is up to date, not outdated. A warning fires ~1 month before the pinned major's EOL (Node release schedule); only after EOL does the newest LTS major become the reported available prebuild version. Ubuntu runners keep a separate 12-month EOL warning threshold
+- Output is compact by default (actionable items only: newer versions, EOL warnings, skipped counts); the full per-item table requires `--verbose`. `--no-network` lists the pinned values and implies `--verbose`
+
+**Data sources** (all verified live 2026-10-03/04):
+- Node versions: `nodejs.org/dist/index.json` · Node EOL: nodejs/release `schedule.json`
+- Electron: npm registry `dist-tags` · Alpine: `alpinelinux.org/releases.json`
+- Ubuntu runner images: actions/runner-images README · Ubuntu EOL: `endoflife.date/api/ubuntu.json`
+
 ### 2026-08-18: Maintenance Script Architecture and Dependency Upgrade Strategy
 
 **Decision**: Three-tier script hierarchy + `npm-check-updates` for dependency upgrades

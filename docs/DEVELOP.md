@@ -88,6 +88,9 @@ tools/bin/maintenance.sh --no-push
 
 # Skip the release step after merging
 tools/bin/maintenance.sh --no-release
+
+# Skip the CI version check at the end
+tools/bin/maintenance.sh --skip-version-check
 ```
 
 The script performs these steps:
@@ -96,8 +99,35 @@ The script performs these steps:
 2. **Create** a pull request with the upgrade changes
 3. **Wait** for CI checks to pass, then **merge** the PR
 4. **Release** — if the PR contains a SQLite bump or unpublished security fix, bump the patch version, push tags, and trigger npm publish
+5. **Report** available upgrades for the versions pinned in the CI workflows (Node.js, Electron, Alpine, Ubuntu runners) via [`check-versions.sh`](../tools/bin/check-versions.sh)
 
-> **Note:** Step 1 delegates to [`upgrade-deps.sh`](../tools/bin/upgrade-deps.sh), which itself delegates SQLite bumps to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh).
+> **Note:** Step 1 delegates to [`upgrade-deps.sh`](../tools/bin/upgrade-deps.sh), which itself delegates SQLite bumps to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh). Step 5 is warning-only and never affects the maintenance result.
+
+### Check CI Version Pins: `check-versions.sh`
+
+The [`tools/bin/check-versions.sh`](../tools/bin/check-versions.sh) script reports when newer versions are available for the values pinned in the GitHub Actions workflows:
+
+- Node.js default and prebuild versions (`DEFAULT_NODE_VERSION`, `PREBUILD_NODE_VERSION`)
+- Electron test version (`electron_version` default)
+- Alpine variant for musl builds (`ALPINE_VARIANT`)
+- Ubuntu runner labels (`ubuntu-24.04`, `ubuntu-24.04-arm`, `ubuntu-latest`)
+
+By default the script prints only the actionable summary (newer versions, end-of-life warnings, skipped items). `--verbose` prints the full per-item report.
+
+The Node.js prebuild pin (`PREBUILD_NODE_VERSION`) is fine as long as its major line is still supported — it does **not** need to be the newest LTS major. A warning appears about 1 month before the pinned major reaches end-of-life (per the Node.js release schedule); only after EOL does the newest LTS major show up as the available prebuild version. Ubuntu runners are warned 12 months before standard support ends. The check is read-only and warning-only — it never modifies files and never fails the maintenance cycle. Network or source failures degrade to per-item "skipped" notices.
+
+```bash
+# Standalone check without a full maintenance cycle
+tools/bin/check-versions.sh
+
+# Full per-item report
+tools/bin/check-versions.sh --verbose
+
+# Only list the pinned values, without remote queries
+tools/bin/check-versions.sh --no-network
+```
+
+Pinned GitHub Actions versions (`actions/checkout` etc.) are not covered by this check — Dependabot creates weekly update PRs for those (see `.github/dependabot.yml`).
 
 ### Upgrade Dependencies: `upgrade-deps.sh`
 

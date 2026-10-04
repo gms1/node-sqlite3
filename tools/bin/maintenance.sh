@@ -11,6 +11,7 @@
 #   --no-release         Skip version bump and npm publish after merge
 #   --skip-sqlite        Skip SQLite version check
 #   --skip-deps          Skip dependency upgrade check
+#   --skip-version-check Skip the CI version check at the end
 #   --force-sqlite       Pass --force to upgrade-sqlite.sh (skip cooldown)
 #   -h, --help           Show this help message
 #
@@ -18,14 +19,18 @@ set -euo pipefail
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+readonly PROJECT_ROOT
 readonly UPGRADE_DEPS_SCRIPT="${SCRIPT_DIR}/upgrade-deps.sh"
+readonly CHECK_VERSIONS_SCRIPT="${SCRIPT_DIR}/check-versions.sh"
 
 # Determine the GitHub repo from the origin remote.
 # This is necessary because "gh" defaults to the upstream parent repo,
 # which may be archived (e.g. TryGhost/node-sqlite3). We want PRs on our fork.
-readonly GH_REPO="$(git -C "$PROJECT_ROOT" remote get-url origin | sed -E 's|.*github.com[:/]||;s|\.git$||')"
+GH_REPO="$(git -C "$PROJECT_ROOT" remote get-url origin | sed -E 's|.*github.com[:/]||;s|\.git$||')"
+readonly GH_REPO
 
 # Exit codes
 readonly EXIT_SUCCESS=0
@@ -39,6 +44,7 @@ NO_PR=false
 NO_RELEASE=false
 SKIP_SQLITE=false
 SKIP_DEPS=false
+SKIP_VERSION_CHECK=false
 FORCE_SQLITE=false
 
 # ─── Helper Functions ────────────────────────────────────────────────────────
@@ -54,6 +60,7 @@ The script will:
   2. Create a pull request for the changes
   3. Wait for CI checks and merge the PR
   4. If needed, bump the patch version and push tags (for releases)
+  5. Report available upgrades for versions pinned in the CI workflows
 
 Options:
   --dry-run            Show what would be done without making changes
@@ -62,6 +69,7 @@ Options:
   --no-release         Skip version bump and npm publish after merge
   --skip-sqlite        Skip SQLite version check
   --skip-deps          Skip dependency upgrade check
+  --skip-version-check Skip the CI version check at the end
   --force-sqlite       Pass --force to upgrade-sqlite.sh (skip cooldown)
   -h, --help           Show this help message
 
@@ -72,6 +80,7 @@ Examples:
   $(basename "$0") --no-release         # Upgrade, PR, merge, but skip release
   $(basename "$0") --skip-sqlite        # Only upgrade dependencies
   $(basename "$0") --skip-deps          # Only check SQLite
+  $(basename "$0") --skip-version-check # Upgrade, PR, merge, release, but no version report
 
 Exit Codes:
   0  Success
@@ -119,6 +128,10 @@ parse_args() {
                 ;;
             --skip-deps)
                 SKIP_DEPS=true
+                shift
+                ;;
+            --skip-version-check)
+                SKIP_VERSION_CHECK=true
                 shift
                 ;;
             --force-sqlite)
@@ -440,6 +453,33 @@ step4_release() {
     log "  gh workflow run publish.yml --repo ${GH_REPO} -f tag=v${new_version}"
 }
 
+step5_check_versions() {
+    log_step "5" "Check for available CI version upgrades"
+
+    if [[ "$SKIP_VERSION_CHECK" == true ]]; then
+        log "Version check skipped (--skip-version-check)"
+        return
+    fi
+
+    if [[ ! -x "$CHECK_VERSIONS_SCRIPT" ]]; then
+        # The version check is informational — a missing or non-executable
+        # script must never fail the maintenance cycle.
+        log "WARNING: Version check script not found or not executable: ${CHECK_VERSIONS_SCRIPT}"
+        return
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        log_dry "Would run: ${CHECK_VERSIONS_SCRIPT}"
+        return
+    fi
+
+    # The check is warning-only: it always exits 0 when it produces a report,
+    # and any failure here is reported but does not affect the maintenance result.
+    if ! "$CHECK_VERSIONS_SCRIPT"; then
+        log "WARNING: Version check reported an error (maintenance result is unaffected)"
+    fi
+}
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
@@ -461,6 +501,9 @@ main() {
     step2_create_pr
     step3_merge_pr
     step4_release
+
+    # Step 5: Report available upgrades for versions pinned in the CI workflows
+    step5_check_versions
 
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
