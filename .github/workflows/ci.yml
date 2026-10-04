@@ -28,7 +28,7 @@ jobs:
   verify-version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Verify tag version matches package.json
         run: |
           # Check if we're running on a tag
@@ -63,7 +63,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Create GitHub Release (draft)
         run: |
           TAG_NAME="${GITHUB_REF#refs/tags/}"
@@ -75,7 +75,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.DEFAULT_NODE_VERSION }}
@@ -158,7 +158,7 @@ jobs:
             node: 26
     name: ${{ matrix.os }} (node=${{ matrix.node }}, host=${{ matrix.host }}, target=${{ matrix.target }})
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
@@ -268,7 +268,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     name: musl ${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Build binaries and test
         run: |
@@ -316,7 +316,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.PREBUILD_NODE_VERSION }}
