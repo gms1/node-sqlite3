@@ -241,7 +241,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         if: matrix.node == env.DEFAULT_NODE_VERSION && matrix.platform == 'linux-x64'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
