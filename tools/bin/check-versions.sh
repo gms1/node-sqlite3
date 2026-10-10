@@ -521,9 +521,12 @@ check_ubuntu() {
         report "Ubuntu runners" "pinned images: ${pinned_str:-none} (ubuntu-latest resolution unknown)"
     fi
 
-    if [[ -n "$max_pinned" ]] && version_gt "$newest_available" "$max_pinned"; then
-        note "ℹ ubuntu-${newest_available} runner image is available"
-        NEWER_ITEMS+=("Ubuntu runners (${newest_available} image available)")
+    # A newer image is only actionable once ubuntu-latest resolves to it - pins are never bumped ahead of the latest pointer
+    if [[ -n "$max_pinned" ]] && [[ -n "$latest_resolves" ]] && version_gt "$latest_resolves" "$max_pinned"; then
+        note "ℹ ubuntu-${latest_resolves} runner image is available (ubuntu-latest has moved to it)"
+        NEWER_ITEMS+=("Ubuntu runners (${latest_resolves} image available)")
+    elif [[ -n "$max_pinned" ]] && version_gt "$newest_available" "$max_pinned"; then
+        note "ℹ ubuntu-${newest_available} runner image is listed but ubuntu-latest still resolves to ${latest_resolves:-unknown} — not reported until latest moves"
     fi
 
     if [[ "$uses_latest" == true && -n "$latest_resolves" && -n "$max_pinned" && "$latest_resolves" != "$max_pinned" ]]; then

@@ -112,7 +112,7 @@ The [`tools/bin/check-versions.sh`](../tools/bin/check-versions.sh) script repor
 - Alpine variant for musl builds (`ALPINE_VARIANT`)
 - Ubuntu runner labels (`ubuntu-24.04`, `ubuntu-24.04-arm`, `ubuntu-latest`)
 
-By default the script prints only the actionable summary (newer versions, end-of-life warnings, skipped items). `--verbose` prints the full per-item report.
+By default the script prints only the actionable summary (newer versions, end-of-life warnings, skipped items). `--verbose` prints the full per-item report. Ubuntu runner pins are only reported as upgradeable once `ubuntu-latest` resolves to the newer image — runner pins are never bumped ahead of the `latest` pointer.
 
 The Node.js prebuild pin (`PREBUILD_NODE_VERSION`) is fine as long as its major line is still supported — it does **not** need to be the newest LTS major. A warning appears about 1 month before the pinned major reaches end-of-life (per the Node.js release schedule); only after EOL does the newest LTS major show up as the available prebuild version. Ubuntu runners are warned 12 months before standard support ends. The check is read-only and warning-only — it never modifies files and never fails the maintenance cycle. Network or source failures degrade to per-item "skipped" notices.
 
