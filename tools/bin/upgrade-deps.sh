@@ -33,6 +33,8 @@ readonly EXIT_SEMVER_FAIL=10
 readonly EXIT_BUILD_FAIL=7
 readonly EXIT_LINT_FAIL=8
 readonly EXIT_TEST_FAIL=9
+# Must match EXIT_COOLDOWN in upgrade-sqlite.sh
+readonly EXIT_SQLITE_COOLDOWN=4
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
 
@@ -55,6 +57,10 @@ The script will:
   2. Check if npm dependencies have upgrades available
   3. Create a feature branch and apply upgrades
   4. Run semver check, rebuild, lint, and test
+
+If the SQLite cooldown period has not elapsed, the SQLite bump is skipped
+with a notice and the dependency upgrade continues. Use --force-sqlite to
+override the cooldown.
 
 Options:
   --dry-run            Show what would be done without making changes
@@ -222,6 +228,7 @@ step1_check_clean_tree() {
     fi
 
     log "Source tree is clean"
+    git pull --rebase --autostash
 }
 
 step2_check_sqlite() {
@@ -272,8 +279,17 @@ step2_check_sqlite() {
         bump_args+=("$latest_version")
 
         log "Running upgrade-sqlite.sh ${bump_args[*]}"
-        if ! "${UPGRADE_SQLITE_SCRIPT}" "${bump_args[@]}"; then
-            echo "ERROR: SQLite bump failed." >&2
+        local bump_status=0
+        "${UPGRADE_SQLITE_SCRIPT}" "${bump_args[@]}" || bump_status=$?
+
+        if [[ "$bump_status" -eq "$EXIT_SQLITE_COOLDOWN" ]]; then
+            log "SQLite bump skipped — cooldown period not elapsed"
+            log "Continuing with dependency upgrades (use --force-sqlite to override the cooldown)"
+            return 0
+        fi
+
+        if [[ "$bump_status" -ne 0 ]]; then
+            echo "ERROR: SQLite bump failed (exit ${bump_status})." >&2
             exit "$EXIT_GENERAL_ERROR"
         fi
 
@@ -534,8 +550,8 @@ main() {
     # Step 2: Check for new SQLite version
     # If a new SQLite version is available, upgrade-sqlite.sh handles everything
     # (including creating a branch, building, testing, and pushing),
-    # so we exit after it runs.
-    local sqlite_bumped=false
+    # so we exit after it runs. If only the cooldown blocked the bump, the
+    # check returns and the dependency upgrade continues.
     if [[ "$SKIP_SQLITE" != true ]]; then
         # step2_check_sqlite may exit the script if a bump was performed
         step2_check_sqlite

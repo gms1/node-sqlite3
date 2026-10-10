@@ -61,7 +61,7 @@ If <new-version> is omitted, the script automatically detects the latest
 available SQLite version from sqlite.org.
 
 Options:
-  --cooldown-days=N   Minimum days since SQLite release before allowing upgrade (default: 7)
+  --cooldown-days=N   Minimum days since SQLite release before allowing upgrade (default: 3)
   --dry-run            Show what would be done without making changes
   --no-push            Commit but do not push to remote
   --force              Skip cooldown period check

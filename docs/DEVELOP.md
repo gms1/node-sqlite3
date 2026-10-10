@@ -156,7 +156,7 @@ tools/bin/upgrade-deps.sh --no-push
 The script performs these steps:
 
 1. **Check** if the source tree is clean
-2. **Check** for a new SQLite version — if available, delegates to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push)
+2. **Check** for a new SQLite version — if available, delegates to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push). If the cooldown period has not elapsed, the bump is skipped with a notice and the dependency upgrade continues (use `--force-sqlite` to override)
 3. **Check** for outdated npm dependencies via `yarn outdated`
 4. **Ensure** a feature branch — if already on a `feature/*` branch (e.g., after a SQLite bump), reuses it; otherwise creates `feature/deps_upgrade_YYYYMMDD`
 5. **Upgrade** dependencies via `npx npm-check-updates -u && yarn install` (main project and `tools/benchmark-drivers/` sub-project)
@@ -177,7 +177,7 @@ The project bundles SQLite as an amalgamation zip file in `deps/`. To upgrade to
 The [`tools/bin/upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh) script automates the entire process:
 
 ```bash
-# Auto-detect the latest SQLite version and bump (with 7-day cooldown)
+# Auto-detect the latest SQLite version and bump (with 3-day cooldown)
 tools/bin/upgrade-sqlite.sh
 
 # Specify a version explicitly
@@ -195,7 +195,7 @@ The script performs these steps:
 1. **Validate** the target version (numeric format, e.g., `3530300` for SQLite 3.53.3)
 2. **Check** the source tree is clean (no uncommitted changes)
 3. **Compare** the target version against the current version in `deps/common-sqlite.gypi`
-4. **Enforce a cooldown** period (default: 7 days since the SQLite release) to allow the community to discover critical bugs
+4. **Enforce a cooldown** period (default: 3 days since the SQLite release) to allow the community to discover critical bugs
 5. **Create** a feature branch (`feature/bump_sqlite_X.Y.Z_W.A.B`)
 6. **Download** the new amalgamation zip from sqlite.org and verify its checksum
 7. **Update** `deps/common-sqlite.gypi` — change `sqlite_version%` to the new version
