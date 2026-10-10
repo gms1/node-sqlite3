@@ -31,7 +31,7 @@ readonly ELECTRON_WORKFLOW="${WORKFLOWS_DIR}/test-electron-package.yml"
 readonly NODE_INDEX_URL="https://nodejs.org/dist/index.json"
 readonly NODE_SCHEDULE_URL="https://raw.githubusercontent.com/nodejs/release/master/schedule.json"
 readonly ELECTRON_DIST_TAGS_URL="https://registry.npmjs.org/-/package/electron/dist-tags"
-readonly ALPINE_RELEASES_URL="https://www.alpinelinux.org/releases.json"
+readonly ALPINE_EOL_URL="https://endoflife.date/api/alpine.json"
 readonly RUNNER_IMAGES_README_URL="https://raw.githubusercontent.com/actions/runner-images/main/README.md"
 readonly UBUNTU_EOL_URL="https://endoflife.date/api/ubuntu.json"
 
@@ -58,7 +58,7 @@ SKIPPED_ITEMS=()
 NODE_INDEX_JSON=""
 NODE_SCHEDULE_JSON=""
 ELECTRON_DIST_TAGS_JSON=""
-ALPINE_RELEASES_JSON=""
+ALPINE_EOL_JSON=""
 RUNNER_README_TEXT=""
 UBUNTU_EOL_JSON=""
 
@@ -279,7 +279,7 @@ load_sources() {
     NODE_INDEX_JSON="$(fetch_url "$NODE_INDEX_URL")" || NODE_INDEX_JSON=""
     NODE_SCHEDULE_JSON="$(fetch_url "$NODE_SCHEDULE_URL")" || NODE_SCHEDULE_JSON=""
     ELECTRON_DIST_TAGS_JSON="$(fetch_url "$ELECTRON_DIST_TAGS_URL")" || ELECTRON_DIST_TAGS_JSON=""
-    ALPINE_RELEASES_JSON="$(fetch_url "$ALPINE_RELEASES_URL")" || ALPINE_RELEASES_JSON=""
+    ALPINE_EOL_JSON="$(fetch_url "$ALPINE_EOL_URL")" || ALPINE_EOL_JSON=""
     RUNNER_README_TEXT="$(fetch_url "$RUNNER_IMAGES_README_URL")" || RUNNER_README_TEXT=""
     UBUNTU_EOL_JSON="$(fetch_url "$UBUNTU_EOL_URL")" || UBUNTU_EOL_JSON=""
 }
@@ -424,25 +424,41 @@ check_alpine() {
         report "Alpine variant" "${pin} (not checked — network disabled)"
         return 0
     fi
-    if [[ -z "$ALPINE_RELEASES_JSON" ]]; then
-        skipped "Alpine variant" "alpinelinux.org unreachable"
-        return 0
-    fi
-
-    local latest
-    latest="$(printf '%s' "$ALPINE_RELEASES_JSON" | json_query 'payload["latest_stable"]' || true)"
-    latest="${latest#v}"
-    if [[ -z "$latest" ]]; then
-        skipped "Alpine variant" "releases.json unparsable"
+    if [[ -z "$ALPINE_EOL_JSON" ]]; then
+        skipped "Alpine variant" "endoflife.date unreachable"
         return 0
     fi
 
     local pin_ver="${pin#alpine}"
-    if [[ "$pin_ver" != "$latest" ]]; then
-        report "Alpine variant" "${pin} → alpine${latest}  ⚠ newer stable release available"
-        NEWER_ITEMS+=("Alpine (${latest})")
+
+    # Policy (mirrors the Node prebuild pin): the pin does not need to track
+    # the newest stable release — it just needs to still receive security
+    # support. Past EOL, the oldest supported release is the upgrade target.
+    local oldest_supported oldest_eol
+    oldest_supported="$(printf '%s' "$ALPINE_EOL_JSON" | json_query '
+        (() => {
+            const e = payload
+                .filter(e => /^[0-9]/.test(e.cycle) && (!e.eol || new Date(e.eol) >= new Date()))
+                .sort((a, b) => parseFloat(a.cycle) - parseFloat(b.cycle))[0];
+            return e ? e.cycle + "|" + (e.eol || "") : null;
+        })()
+    ')" || oldest_supported=""
+    if [[ -z "$oldest_supported" ]]; then
+        skipped "Alpine variant" "endoflife.date payload unparsable"
+        return 0
+    fi
+    oldest_eol="${oldest_supported#*|}"
+    oldest_supported="${oldest_supported%%|*}"
+
+    local pin_eol
+    pin_eol="$(printf '%s' "$ALPINE_EOL_JSON" | json_query "payload.find(e => e.cycle === \"${pin_ver}\").eol")" || pin_eol=""
+
+    if version_gt "$oldest_supported" "$pin_ver"; then
+        # Past EOL: the release receives no security updates at all.
+        report "Alpine variant" "${pin} → alpine${oldest_supported}  ⚠ EOL ${pin_eol:-unknown}, no security support — upgrade to the oldest supported release${oldest_eol:+ (supported until ${oldest_eol})}"
+        EOL_ITEMS+=("Alpine (${pin_ver}) — EOL${pin_eol:+ ${pin_eol}}, no security support (oldest supported: ${oldest_supported}${oldest_eol:+, until ${oldest_eol}})")
     else
-        report "Alpine variant" "${pin} (up to date)"
+        report "Alpine variant" "${pin} (EOL ${pin_eol:-unknown}) — up to date"
     fi
 }
 
