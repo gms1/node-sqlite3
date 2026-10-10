@@ -9,7 +9,7 @@ on:
       electron_version:
         description: 'Electron version to test with'
         required: false
-        default: '35'
+        default: '44'
         type: string
       node_version:
         description: 'Node.js version for npm/setup'
@@ -25,7 +25,7 @@ on:
       electron_version:
         description: 'Electron version to test with'
         required: false
-        default: '35'
+        default: '44'
         type: string
       node_version:
         description: 'Node.js version for npm/setup'
@@ -53,7 +53,7 @@ jobs:
           - os: windows-11-arm
             platform: win32-arm64
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.platform }} (electron=${{ inputs.electron_version || '35' }})
+    name: ${{ matrix.platform }} (electron=${{ inputs.electron_version || '44' }})
     steps:
       - name: Download artifact from specific run
         uses: actions/download-artifact@v8
@@ -89,7 +89,7 @@ jobs:
           mkdir test-project && cd test-project
           npm init -y
           npm install "$TARBALL"
-          npm install --save-dev electron@${{ inputs.electron_version || '35' }}
+          npm install --save-dev electron@${{ inputs.electron_version || '44' }}
           echo "--- Installed package contents ---"
           ls -la node_modules/@homeofthings/sqlite3/ 2>/dev/null || dir node_modules\\@homeofthings\\sqlite3\\ 2>/dev/null || true
           echo "--- Prebuilds ---"
