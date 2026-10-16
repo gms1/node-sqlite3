@@ -248,12 +248,28 @@ step2_create_pr() {
     # Push to remote (upgrade-deps.sh may have already pushed, but this is idempotent)
     git push -u origin "$current_branch"
 
-    # Determine PR title based on changed files
-    local pr_title="chore: upgrade dependencies"
-    if git diff main...HEAD --name-only 2>/dev/null | grep -q "deps/common-sqlite.gypi"; then
+    # Determine PR title from the files actually changed on the branch
+    local changed_files
+    changed_files="$(git diff main...HEAD --name-only 2>/dev/null || true)"
+    local sqlite_bumped=false deps_changed=false
+    if grep -qx "deps/common-sqlite.gypi" <<<"$changed_files"; then
+        sqlite_bumped=true
+    fi
+    if grep -qx "package.json" <<<"$changed_files"; then
+        deps_changed=true
+    fi
+
+    local pr_title
+    if [[ "$sqlite_bumped" == true && "$deps_changed" == true ]]; then
         local sqlite_ver
         sqlite_ver="$(sqlite_version_human)"
         pr_title="chore: upgrade SQLite${sqlite_ver:+ to ${sqlite_ver}} and dependencies"
+    elif [[ "$sqlite_bumped" == true ]]; then
+        local sqlite_ver
+        sqlite_ver="$(sqlite_version_human)"
+        pr_title="chore: upgrade SQLite${sqlite_ver:+ to ${sqlite_ver}}"
+    else
+        pr_title="chore: upgrade dependencies"
     fi
 
     local pr_body="Automated dependency upgrade via \`maintenance.sh\`."
