@@ -101,6 +101,17 @@ log_dry() {
     echo "[DRY-RUN] $*"
 }
 
+# Read the SQLite version from deps/common-sqlite.gypi and convert it to
+# human-readable form (e.g., 3540000 -> 3.54.0). Empty output if not found.
+sqlite_version_human() {
+    local ver
+    ver="$(grep "sqlite_version%" "${PROJECT_ROOT}/deps/common-sqlite.gypi" 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)"
+    if [[ -z "$ver" ]]; then
+        return 0
+    fi
+    printf "%d.%d.%d" $((10#$ver / 1000000)) $(( (10#$ver % 1000000) / 10000 )) $(( (10#$ver % 10000) / 100 ))
+}
+
 # ─── Argument Parsing ────────────────────────────────────────────────────────
 
 parse_args() {
@@ -240,7 +251,9 @@ step2_create_pr() {
     # Determine PR title based on changed files
     local pr_title="chore: upgrade dependencies"
     if git diff main...HEAD --name-only 2>/dev/null | grep -q "deps/common-sqlite.gypi"; then
-        pr_title="chore: upgrade SQLite and dependencies"
+        local sqlite_ver
+        sqlite_ver="$(sqlite_version_human)"
+        pr_title="chore: upgrade SQLite${sqlite_ver:+ to ${sqlite_ver}} and dependencies"
     fi
 
     local pr_body="Automated dependency upgrade via \`maintenance.sh\`."
