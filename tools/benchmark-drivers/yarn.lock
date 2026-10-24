@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@homeofthings/sqlite3@^7.0.5":
-  version "7.0.5"
-  resolved "https://registry.yarnpkg.com/@homeofthings/sqlite3/-/sqlite3-7.0.5.tgz#85d523237067589a857b1294581f85e398e18bdb"
-  integrity sha512-GFNgQFSfQH527pdqrBYsrlAIUeAoBkaQMetNraVpCKCA8DwHy+H6fgOij4BDoMaxlL8a5bJ1GLbsg2r8lyDc9g==
+"@homeofthings/sqlite3@^7.0.6":
+  version "7.0.6"
+  resolved "https://registry.yarnpkg.com/@homeofthings/sqlite3/-/sqlite3-7.0.6.tgz#6af6557796b94ae8a54bdc2228cd34cd0a2dfa3f"
+  integrity sha512-J8DIvGkb2x+eOHDiFTynYSWc3LwVy/7oK/zzJPr9MtQmNutjpUHj8Ngcl/rNL0dVnB9tl6pR0hbOviYaCFL+iQ==
   dependencies:
     node-addon-api "^8.9.2"
     node-gyp-build "^4.8.4"
@@ -270,10 +270,10 @@ timers-ext@^0.1.7:
     es5-ext "^0.10.64"
     next-tick "^1.1.0"
 
-tinybench@^6.2.1:
-  version "6.2.1"
-  resolved "https://registry.yarnpkg.com/tinybench/-/tinybench-6.2.1.tgz#84184d41be7d18815cc63daaf1f5057dafe2b3dd"
-  integrity sha512-IAbQaPJIIdhVxi0mqy9lez1wEwje0UQf9F1vwtbelEG5Nbgn0nPOxCvU+mNeNS9gyJTAhrHp74CbUaSynQpZcQ==
+tinybench@^6.2.2:
+  version "6.2.2"
+  resolved "https://registry.yarnpkg.com/tinybench/-/tinybench-6.2.2.tgz#e03ffd4d46fabebae1d5bb292bd25e39505551ee"
+  integrity sha512-nIZ2N2dFpjBsg2hgitKu7mA+FvsIJuGJOwysRngmVRRmWgR/UyPjwJj8c/fT/dhm8EkHnF5EOogRf+0Z2qrimA==
 
 tinyglobby@^0.2.12:
   version "0.2.16"
