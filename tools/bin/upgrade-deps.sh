@@ -58,9 +58,11 @@ The script will:
   3. Create a feature branch and apply upgrades
   4. Run semver check, rebuild, lint, and test
 
-If the SQLite cooldown period has not elapsed, the SQLite bump is skipped
-with a notice and the dependency upgrade continues. Use --force-sqlite to
-override the cooldown.
+If a SQLite bump is performed, it lands on its own feature branch and the
+dependency upgrade continues on the same branch, so one run produces one
+PR combining both. If the SQLite cooldown period has not elapsed, the
+bump is skipped with a notice and the dependency upgrade continues.
+Use --force-sqlite to override the cooldown.
 
 Options:
   --dry-run            Show what would be done without making changes
@@ -293,8 +295,7 @@ step2_check_sqlite() {
             exit "$EXIT_GENERAL_ERROR"
         fi
 
-        log "SQLite bump completed. Exiting — dependency upgrade should be run separately."
-        exit "$EXIT_SUCCESS"
+        log "SQLite bump completed. Continuing with dependency upgrades on the same branch."
     else
         log "SQLite is up to date (${current_human})"
     fi
@@ -548,12 +549,11 @@ main() {
     step1_check_clean_tree
 
     # Step 2: Check for new SQLite version
-    # If a new SQLite version is available, upgrade-sqlite.sh handles everything
-    # (including creating a branch, building, testing, and pushing),
-    # so we exit after it runs. If only the cooldown blocked the bump, the
-    # check returns and the dependency upgrade continues.
+    # If a new SQLite version is available, upgrade-sqlite.sh handles the full
+    # bump (branch, build, test, commit, push) and returns; the dependency
+    # upgrade then continues on the same feature branch (step4 reuses it).
+    # If only the cooldown blocked the bump, the same continuation happens.
     if [[ "$SKIP_SQLITE" != true ]]; then
-        # step2_check_sqlite may exit the script if a bump was performed
         step2_check_sqlite
     fi
 

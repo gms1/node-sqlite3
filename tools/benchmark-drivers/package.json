@@ -9,10 +9,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@homeofthings/sqlite3": "^7.0.5",
+    "@homeofthings/sqlite3": "^7.0.6",
     "better-sqlite3": "^13.0.3",
     "cli-color": "^2.0.4",
     "fs-extra": "^11.4.1",
-    "tinybench": "^6.2.1"
+    "tinybench": "^6.2.2"
   }
 }

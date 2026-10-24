@@ -45,12 +45,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.12.0",
+    "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "mocha": "12.0.3",
     "nyc": "^18.0.0",
     "prebuildify": "^6.0.1",
-    "tinybench": "^6.2.1"
+    "tinybench": "^6.2.2"
   },
   "peerDependencies": {
     "node-gyp": "12.x"

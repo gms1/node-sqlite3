@@ -44,13 +44,9 @@ After implementing changes, follow this procedure:
    Co-authored-by: <AgentName> (<Model>) <email>
    ```
 
-   Zoo's address is `zoo@glm.ai`, e.g.:
-
-   ```text
-   Co-authored-by: Zoo (glm-5.3) <zoo@glm.ai>
-   ```
-
-   Never invent or substitute an email address that merely comes to mind (e.g. a generic placeholder domain) — if the concrete address is not stated here, check the repository history (`git log`) for prior trailers, or ask the user.
+   In you don't have any email configured:
+   - In case you are Zoo please use `zoo@glm.ai`
+   - Never invent or substitute an email address that merely comes to your mind — if the concrete address is not stated here ask the user.
 
 This checkpoint exists because implementing changes, committing them, and publishing them are separate concerns. The user may want to review, adjust, or split changes before they become part of the repository history, and may want to control when and how changes reach the remote.
 

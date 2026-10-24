@@ -95,7 +95,7 @@ tools/bin/maintenance.sh --skip-version-check
 
 The script performs these steps:
 
-1. **Upgrade** dependencies and SQLite via [`upgrade-deps.sh`](../tools/bin/upgrade-deps.sh)
+1. **Upgrade** dependencies and SQLite via [`upgrade-deps.sh`](../tools/bin/upgrade-deps.sh) — a SQLite bump and dependency upgrades from one run land on the same feature branch and are covered by a single PR
 2. **Create** a pull request with the upgrade changes
 3. **Wait** for CI checks to pass, then **merge** the PR
 4. **Release** — if the PR contains a SQLite bump or unpublished security fix, bump the patch version, push tags, and trigger npm publish
@@ -156,8 +156,8 @@ tools/bin/upgrade-deps.sh --no-push
 The script performs these steps:
 
 1. **Check** if the source tree is clean
-2. **Check** for a new SQLite version — if available, delegates to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push). If the cooldown period has not elapsed, the bump is skipped with a notice and the dependency upgrade continues (use `--force-sqlite` to override)
-3. **Check** for outdated npm dependencies via `yarn outdated`
+2. **Check** for a new SQLite version — if available, delegates to [`upgrade-sqlite.sh`](../tools/bin/upgrade-sqlite.sh) which handles the full bump process (including build, lint, test, commit, and push) on its own feature branch. The dependency upgrade then continues on the same branch, so one run produces one PR combining both (if the cooldown period has not elapsed, the bump is skipped with a notice and only the dependency upgrade proceeds — use `--force-sqlite` to override)
+3. **Check** for outdated npm dependencies via `npm-check-updates` (direct dependencies only — `yarn outdated` also reports transitive and sub-project deps, which are not actionable here)
 4. **Ensure** a feature branch — if already on a `feature/*` branch (e.g., after a SQLite bump), reuses it; otherwise creates `feature/deps_upgrade_YYYYMMDD`
 5. **Upgrade** dependencies via `npx npm-check-updates -u && yarn install` (main project and `tools/benchmark-drivers/` sub-project)
 6. **Run semver check** (`node tools/semver-check.js`) to verify dependency Node.js version compatibility
