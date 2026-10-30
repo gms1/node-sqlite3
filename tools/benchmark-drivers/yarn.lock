@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@homeofthings/sqlite3@^7.0.6":
-  version "7.0.6"
-  resolved "https://registry.yarnpkg.com/@homeofthings/sqlite3/-/sqlite3-7.0.6.tgz#6af6557796b94ae8a54bdc2228cd34cd0a2dfa3f"
-  integrity sha512-J8DIvGkb2x+eOHDiFTynYSWc3LwVy/7oK/zzJPr9MtQmNutjpUHj8Ngcl/rNL0dVnB9tl6pR0hbOviYaCFL+iQ==
+"@homeofthings/sqlite3@^7.0.7":
+  version "7.0.7"
+  resolved "https://registry.yarnpkg.com/@homeofthings/sqlite3/-/sqlite3-7.0.7.tgz#fdd1ae8d1a4c39d5922632d08db74e6d61773494"
+  integrity sha512-hrzGIDU+epvdr2sB86XBPgeetaOgno9Y+4XIt4rsWy3pRpt544JUXvCzY4WT2VIhS/F4TdH6O8m3ven4dRoigA==
   dependencies:
     node-addon-api "^8.9.2"
     node-gyp-build "^4.8.4"
