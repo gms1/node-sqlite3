@@ -321,7 +321,7 @@ The project uses three GitHub Actions workflows for continuous integration and r
 |----------|-------|---------|
 | `PREBUILD_NODE_VERSION` | `'22'` | Node version for building prebuilts (NAPI v9, compatible with all Node 22+) |
 | `DEFAULT_NODE_VERSION` | `'26'` | Node version for lint, Codecov, smoke tests, packaging |
-| `ALPINE_VARIANT` | `'alpine3.20'` | Alpine variant for musl Docker builds |
+| `ALPINE_VARIANT` | `'alpine3.22'` | Alpine variant for musl Docker builds |
 
 **Jobs**:
 
