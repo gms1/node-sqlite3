@@ -49,6 +49,8 @@ With `NAPI_CPP_EXCEPTIONS` enabled, `Napi::Error` was thrown as a C++ exception.
 
 ## async hook stack corruption
 
+> **Note (2026-10-31)**: The last observed occurrence was on **2026-04-23**. No crashes have been seen since, so a newer Node.js version (or another environmental change) may have resolved this issue. The analysis below is retained for reference.
+
 within CI workflow on macOS we got an async hook stack corruption as race condition in native addon
 This error has appeared from time to time in the CI workflow, but was not reproducible by the test/sync_hooks_stress.test.js
 
