@@ -406,7 +406,7 @@ step3_merge_pr() {
 
     log "Pulling merged changes..."
     git checkout main
-    git pull origin main
+    git pull --rebase --autostash
 }
 
 step4_release() {
