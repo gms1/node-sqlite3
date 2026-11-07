@@ -303,16 +303,22 @@ check_node() {
     fi
 
     # --- Default Node version ---
-    local newest newest_major latest_of_default
+    local newest newest_lts newest_major newest_lts_major latest_of_default newest_default newest_default_major
     newest="$(printf '%s' "$NODE_INDEX_JSON" | json_query 'payload[0].version' || true)"
     newest_major="$(major_of "$newest")"
-    if [[ -n "$default_pin" && -n "$newest" ]]; then
+    newest_lts="$(printf '%s' "$NODE_INDEX_JSON" | json_query 'payload.find(e => e.lts).version' || true)"
+    newest_lts_major="$(major_of "$newest_lts")"
+
+    newest_default="$newest_lts"
+    newest_default_major="$newest_lts_major"
+
+    if [[ -n "$default_pin" && -n "$newest_default" ]]; then
         latest_of_default="$(printf '%s' "$NODE_INDEX_JSON" | json_query "payload.find(e => parseInt(e.version.slice(1)) === ${default_pin}).version" || true)"
-        if [[ "$default_pin" == "$newest_major" ]]; then
-            report "Node.js (default)" "${default_pin} → ${latest_of_default:-$newest} (current major, up to date)"
+        if [[ "$default_pin" == "$newest_default_major" ]]; then
+            report "Node.js (default)" "${default_pin} → ${latest_of_default:-$newest_default} (current default Node, up to date)"
         else
-            report "Node.js (default)" "${default_pin} → ${newest_major}  ⚠ newer Node major available"
-            NEWER_ITEMS+=("Node.js default (${newest_major})")
+            report "Node.js (default)" "${default_pin} → ${newest_default_major}  ⚠ newer default Node available"
+            NEWER_ITEMS+=("Node.js default (${newest_default_major})")
         fi
     else
         skipped "Node.js (default)" "pin not found or index.json unparsable"
@@ -332,16 +338,9 @@ check_node() {
         return 0
     fi
 
-    local newest_lts lts_major
-    newest_lts="$(printf '%s' "$NODE_INDEX_JSON" | json_query 'payload.find(e => e.lts).version' || true)"
-    lts_major="$(major_of "$newest_lts")"
-
-    local codename="" name_note="" eol_date=""
-    codename="$(printf '%s' "$NODE_SCHEDULE_JSON" | json_query "payload[\"v${prebuild_pin}\"].codename" || true)"
+    local eol_date=""
     eol_date="$(printf '%s' "$NODE_SCHEDULE_JSON" | json_query "payload[\"v${prebuild_pin}\"].end" || true)"
-    if [[ -n "$codename" ]]; then
-        name_note=" '${codename}'"
-    fi
+
     if [[ -z "$eol_date" ]]; then
         skipped "Node.js (prebuild)" "no EOL date for Node ${prebuild_pin} in schedule"
         return 0
@@ -355,8 +354,8 @@ check_node() {
 
     if (( months < 0 )); then
         # Past EOL: the newest LTS major is the available prebuild version.
-        report "Node.js (prebuild)" "${prebuild_pin} → ${lts_major:-newest LTS}  ⚠ Node ${prebuild_pin}${name_note} reached EOL ${eol_date} — upgrade the prebuild"
-        NEWER_ITEMS+=("Node.js prebuild (${lts_major:-newest LTS})")
+        report "Node.js (prebuild)" "${prebuild_pin} → ${newest_lts_major:-newest LTS}  ⚠ Node ${prebuild_pin} reached EOL ${eol_date} — upgrade the prebuild"
+        NEWER_ITEMS+=("Node.js prebuild (${newest_lts_major:-newest LTS})")
     elif (( months <= NODE_EOL_WARN_MONTHS )); then
         # Approaching EOL: warn, but the pin is still fine — not an
         # available version yet.
@@ -366,12 +365,12 @@ check_node() {
         else
             when="in ~${months} month(s)"
         fi
-        report "Node.js (prebuild)" "${prebuild_pin}  ⚠ Node ${prebuild_pin}${name_note} reaches EOL ${eol_date} (${when}) — plan the upgrade to the next LTS major"
+        report "Node.js (prebuild)" "${prebuild_pin}  ⚠ Node ${prebuild_pin} reaches EOL ${eol_date} (${when}) — plan the upgrade to the next LTS major"
         EOL_ITEMS+=("Node.js prebuild (${prebuild_pin}) — reaches EOL ${eol_date} (${when})")
     else
         # Supported with time to spare: up to date, even if a newer LTS
         # major exists.
-        report "Node.js (prebuild)" "${prebuild_pin}${name_note} (EOL ${eol_date}) — up to date"
+        report "Node.js (prebuild)" "${prebuild_pin} (EOL ${eol_date}) — up to date"
     fi
 }
 
