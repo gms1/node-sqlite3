@@ -10,7 +10,7 @@
   "description": "",
   "dependencies": {
     "@homeofthings/sqlite3": "^7.0.7",
-    "better-sqlite3": "^13.0.3",
+    "better-sqlite3": "^13.1.1",
     "cli-color": "^2.0.4",
     "fs-extra": "^11.4.1",
     "tinybench": "^6.2.3"
