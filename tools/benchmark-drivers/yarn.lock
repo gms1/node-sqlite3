@@ -24,10 +24,10 @@ abbrev@^5.0.0:
   resolved "https://registry.yarnpkg.com/abbrev/-/abbrev-5.0.0.tgz#bab70805adca6637a33eeecdb8b7b5474d6d6425"
   integrity sha512-/XrFJgzQQQHpti1raDJC6m4ws6aNktmjBlhk8Fdlk7LwCEuDoieEJJY9OFHjfiFJFFRM2tK+Ky/IsfbbmlMu1w==
 
-better-sqlite3@^13.1.1:
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/better-sqlite3/-/better-sqlite3-13.1.1.tgz#12aad5404a17f51a1d88bdfd95b0d36e350d9b28"
-  integrity sha512-JjyLCATp+VLxZVFyWkicyzKYwpEFLCrV4MmshW97xv3JXdhw5jBDcsbEWRGm2L/96E+k7rtjON8q9nml05h3Pw==
+better-sqlite3@^13.2.0:
+  version "13.2.0"
+  resolved "https://registry.yarnpkg.com/better-sqlite3/-/better-sqlite3-13.2.0.tgz#61b452adbc3db9fb13e1d0e5ad04347b6fc7f833"
+  integrity sha512-Z8Q/9x/uNyKxA1v4FNodyItRVRw1TeKBrmj32JhxhR0ceNcBY+wMobt/Bv7M7TzwPAXjnZRtNaEsATnUZSKWZQ==
   dependencies:
     node-addon-api "^8.0.0"
 
@@ -270,10 +270,10 @@ timers-ext@^0.1.7:
     es5-ext "^0.10.64"
     next-tick "^1.1.0"
 
-tinybench@^6.2.3:
-  version "6.2.3"
-  resolved "https://registry.yarnpkg.com/tinybench/-/tinybench-6.2.3.tgz#2e560dfbf17f83ddbe0be0681f8ed0553d2136d5"
-  integrity sha512-Al01C2JIBnO2CXCAPbpAl6sUiOZHeThGtHYNTa51JRw9PyWOCdr+9Ong05R4qg/Sk3+H645E8ov1h2c58ityNw==
+tinybench@^6.2.4:
+  version "6.2.4"
+  resolved "https://registry.yarnpkg.com/tinybench/-/tinybench-6.2.4.tgz#56d00d2a3908d739b56f6c2fc647b87eb8adbadb"
+  integrity sha512-SQ52jEncXxbMCzJuY2A/jGIbbAu6NYsBWW7grz2pNE+EnzQdoGaoBfpk4qC/opE7qiUcGmGgaGIz5EoHdS1O9w==
 
 tinyglobby@^0.2.12:
   version "0.2.16"
