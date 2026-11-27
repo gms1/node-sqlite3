@@ -1658,10 +1658,10 @@ test-exclude@^8.0.0:
     glob "^13.0.6"
     minimatch "^10.2.2"
 
-tinybench@^6.2.4:
-  version "6.2.4"
-  resolved "https://registry.yarnpkg.com/tinybench/-/tinybench-6.2.4.tgz#56d00d2a3908d739b56f6c2fc647b87eb8adbadb"
-  integrity sha512-SQ52jEncXxbMCzJuY2A/jGIbbAu6NYsBWW7grz2pNE+EnzQdoGaoBfpk4qC/opE7qiUcGmGgaGIz5EoHdS1O9w==
+tinybench@^6.2.5:
+  version "6.2.5"
+  resolved "https://registry.yarnpkg.com/tinybench/-/tinybench-6.2.5.tgz#b7be4ab85a6a2d82f32ecaeea5e76a3a7cfb1b9c"
+  integrity sha512-b/8GRMdnY4cqkfCLyaFpTGIv1qwfi3oT0mWaepwT++6Z/ZrYehNfZZ2JDKVLKGhNoEkS3IIB1ELtCT0XS5DtOA==
 
 tinyglobby@^0.2.12:
   version "0.2.17"
